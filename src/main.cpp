@@ -1,18 +1,53 @@
 #include <Arduino.h>
+#include "Adafruit_seesaw.h"
 
-// put function declarations here:
-int myFunction(int, int);
+Adafruit_seesaw soilsensor;
+
+struct soilSensorResponse {
+  float soilTemperature;
+  uint16_t soilCapacitive;
+};
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(115200);
+
+  initSoilSensor();
+
+  soilSensorResponse currentSoilResponse;
+  currentSoilResponse = readSoilSensor(currentSoilResponse);
+  Serial.println("Soil Temp: " + String(currentSoilResponse.soilTemperature));
+  Serial.println("Soil Cap: " + String(currentSoilResponse.soilCapacitive));
+
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
+
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+bool initSoilSensor(){
+
+  static bool isFirstCall = true;
+
+  if (isFirstCall){
+    if (!soilsensor.begin(0x36)) {
+    Serial.println(F("Couldnt find Adafruit Soil Sensor!"));
+      return false;
+    }
+    Serial.print("Seesaw Soil Sensor started! version: ");
+    Serial.println(soilsensor.getVersion(), HEX);
+    isFirstCall = false;
+  }
+  return true;
 }
+
+soilSensorResponse readSoilSensor(soilSensorResponse currentSoilResponse) {
+  
+  currentSoilResponse = {
+    soilsensor.getTemp(),
+    soilsensor.touchRead(0)
+  };
+
+  return currentSoilResponse;
+
+}
+
