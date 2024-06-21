@@ -3,6 +3,9 @@
 
 Adafruit_seesaw soilsensor;
 
+/* ESP32 PINS */
+int pumpControl = 9;
+
 struct soilSensorResponse {
   float soilTemperature;
   uint16_t soilCapacitive;
@@ -24,6 +27,8 @@ void loop() {
 
 }
 
+/* Init Functions */
+
 bool initSoilSensor(){
 
   static bool isFirstCall = true;
@@ -40,6 +45,8 @@ bool initSoilSensor(){
   return true;
 }
 
+/* Sensor Functions */
+
 soilSensorResponse readSoilSensor(soilSensorResponse currentSoilResponse) {
   
   currentSoilResponse = {
@@ -48,6 +55,37 @@ soilSensorResponse readSoilSensor(soilSensorResponse currentSoilResponse) {
   };
 
   return currentSoilResponse;
+
+}
+
+/* Pump Functions */
+
+bool pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
+
+  static bool isFirstCall = true;
+
+  if (isFirstCall){
+    pinMode(pumpControl, OUTPUT);
+    isFirstCall = false;
+  }
+
+  if ( maxPumpSpeed > 255){
+    return false;
+  }
+  
+  //ramp up pump
+  for(int pumpSpeed = 0; pumpSpeed <= maxPumpSpeed; pumpSpeed++){
+    analogWrite(pumpControl, pumpSpeed);
+    delay(rampDelay);
+  }
+
+  delay(pumpDuration);
+
+  //ramp down pump
+  for(int pumpSpeed = 0; pumpSpeed >= 0; pumpSpeed--){
+    analogWrite(pumpControl, pumpSpeed);
+    delay(rampDelay);
+  }   
 
 }
 
