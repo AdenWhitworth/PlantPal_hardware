@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <SPI.h>
 #include "Adafruit_seesaw.h"
 
 Adafruit_seesaw soilsensor;
@@ -16,17 +17,6 @@ struct soilSensorResponse {
   float soilTemperature;
   uint16_t soilCapacitive;
 };
-
-void setup() {
-  Serial.begin(115200);
-
-  initSoilSensor();
-
-}
-
-void loop() {
-
-}
 
 /* Init Functions */
 
@@ -120,3 +110,13 @@ void correctSoilCapacitive(){
 
 }
 
+void setup() {
+  Serial.begin(115200);
+
+  initSoilSensor();
+
+}
+
+void loop() {
+
+}
