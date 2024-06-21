@@ -6,6 +6,12 @@ Adafruit_seesaw soilsensor;
 /* ESP32 PINS */
 int pumpControl = 9;
 
+/* Global Variables */
+int maxSoilCapacitive = 2000; //very wet soil
+int minSoilCapacitive = 200; // very dry soil
+int targetSoilCapacitive = 1200; //watered to this point
+int triggerSoilCapacitive = 600; //begin watering at this point
+
 struct soilSensorResponse {
   float soilTemperature;
   uint16_t soilCapacitive;
@@ -15,11 +21,6 @@ void setup() {
   Serial.begin(115200);
 
   initSoilSensor();
-
-  soilSensorResponse currentSoilResponse;
-  currentSoilResponse = readSoilSensor(currentSoilResponse);
-  Serial.println("Soil Temp: " + String(currentSoilResponse.soilTemperature));
-  Serial.println("Soil Cap: " + String(currentSoilResponse.soilCapacitive));
 
 }
 
@@ -58,9 +59,24 @@ soilSensorResponse readSoilSensor(soilSensorResponse currentSoilResponse) {
 
 }
 
+bool assessSoil(){
+
+  soilSensorResponse currentSoilResponse;
+  currentSoilResponse = readSoilSensor(currentSoilResponse);
+  Serial.println("Soil Temp: " + String(currentSoilResponse.soilTemperature));
+  Serial.println("Soil Cap: " + String(currentSoilResponse.soilCapacitive));
+
+  if (int(currentSoilResponse.soilCapacitive) < triggerSoilCapacitive){
+    return true;
+  } else {
+    return false;
+  }
+
+}
+
 /* Pump Functions */
 
-bool pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
+void pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
 
   static bool isFirstCall = true;
 
@@ -70,7 +86,7 @@ bool pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
   }
 
   if ( maxPumpSpeed > 255){
-    return false;
+    return;
   }
   
   //ramp up pump
@@ -86,6 +102,21 @@ bool pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
     analogWrite(pumpControl, pumpSpeed);
     delay(rampDelay);
   }   
+
+}
+
+void correctSoilCapacitive(){
+
+  soilSensorResponse currentSoilResponse;
+  currentSoilResponse = readSoilSensor(currentSoilResponse);
+
+  while (int(currentSoilResponse.soilCapacitive) < targetSoilCapacitive && int(currentSoilResponse.soilCapacitive) > triggerSoilCapacitive){
+
+    pumpWater(80,5,1000);
+
+    currentSoilResponse = readSoilSensor(currentSoilResponse);
+
+  }
 
 }
 
