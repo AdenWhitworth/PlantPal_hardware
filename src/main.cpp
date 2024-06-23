@@ -2,13 +2,14 @@
 #include <SPI.h>
 #include "Adafruit_seesaw.h"
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <MQTT.h>
 #include <ArduinoJson.h>
 #include <utilities.h>
 
 Adafruit_seesaw soilsensor;
-WiFiClient network;
-MQTTClient mqtt = MQTTClient(256);
+WiFiClientSecure net = WiFiClientSecure();
+MQTTClient client = MQTTClient(256);
 
 /* ESP32 PINS */
 int pumpControl = 9;
@@ -130,54 +131,59 @@ void setupWifi(){
 }
 
 void messageHandler(String &topic, String &payload) {
-  Serial.println("ESP32 - received from MQTT:");
+  Serial.println("received:");
   Serial.println("- topic: " + topic);
-  Serial.println("- payload:" + payload);
+  Serial.println("- payload:");
+  Serial.println(payload);
+
+  StaticJsonDocument<200> doc;
+  deserializeJson(doc, payload);
+  const char* message = doc["message"];
+  Serial.println(message);
+  
 }
 
 
 void connectToMQTT() {
 
-  mqtt.begin(MQTT_BROKER_ADRRESS, MQTT_PORT, network);
+  net.setCACert(AWS_CERT_CA);
+  net.setCertificate(AWS_CERT_CRT);
+  net.setPrivateKey(AWS_CERT_PRIVATE);
 
-  mqtt.onMessage(messageHandler);
+  client.begin(AWS_IOT_ENDPOINT, 8883, net);
+
+  client.onMessage(messageHandler);
 
   Serial.print("ESP32 - Connecting to MQTT broker");
 
-  while (!mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD)) {
+    while (!client.connect(THINGNAME)) {
     Serial.print(".");
     delay(100);
   }
   Serial.println();
 
-  if (!mqtt.connected()) {
-    Serial.println("ESP32 - MQTT broker Timeout!");
+  if (!client.connected()) {
+    Serial.println("ESP32 - AWS IoT Timeout!");
     return;
   }
 
-  if (mqtt.subscribe(SUBSCRIBE_TOPIC)) {
-    Serial.print("ESP32 - Subscribed to the topic: ");
-  } else {
-    Serial.print("ESP32 - Failed to subscribe to the topic: ");
-    return;
-  }
+  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
 
-  Serial.println(SUBSCRIBE_TOPIC);
-  Serial.println("ESP32 - MQTT broker Connected!");
+  Serial.println("ESP32  - AWS IoT Connected!");
 }
 
 void sendToMQTT() {
   StaticJsonDocument<200> message;
   message["timestamp"] = millis();
-  message["data"] = "Hello";
+  message["data"] = "HelloAWS"; 
   char messageBuffer[512];
   serializeJson(message, messageBuffer);
 
-  mqtt.publish(PUBLISH_TOPIC, messageBuffer);
+  client.publish(AWS_IOT_PUBLISH_TOPIC, messageBuffer);
 
-  Serial.println("ESP32 - sent to MQTT:");
+  Serial.println("sent:");
   Serial.print("- topic: ");
-  Serial.println(PUBLISH_TOPIC);
+  Serial.println(AWS_IOT_PUBLISH_TOPIC);
   Serial.print("- payload:");
   Serial.println(messageBuffer);
 }
@@ -196,5 +202,5 @@ void setup() {
 }
 
 void loop() {
-
+  client.loop();
 }
