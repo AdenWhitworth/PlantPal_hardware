@@ -11,8 +11,25 @@ Adafruit_seesaw soilsensor;
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(256);
 
-/* ESP32 PINS */
-int pumpControl = 9;
+/* Pump Control */
+int pumpControlPin = 9;
+
+/* Buttons */
+const byte statusBTNPin = 34;
+
+/* RGB LED */
+const byte GreenLedPin = 32;
+const byte RedLedPin = 26;
+const byte BlueLedPin = 27;
+#define PWM1_Ch    0
+#define PWM1_Res   8
+#define PWM1_Freq  1000
+#define PWM2_Ch    1
+#define PWM2_Res   8
+#define PWM2_Freq  1000
+#define PWM3_Ch    2
+#define PWM3_Res   8
+#define PWM3_Freq  1000
 
 /* Global Variables */
 int maxSoilCapacitive = 2000; //very wet soil
@@ -33,11 +50,26 @@ bool initSoilSensor(){
 
   if (isFirstCall){
     if (!soilsensor.begin(0x36)) {
-    Serial.println(F("Couldnt find Adafruit Soil Sensor!"));
+    Serial.println("Couldnt find Adafruit Soil Sensor!");
       return false;
     }
     Serial.print("Seesaw Soil Sensor started! version: ");
     Serial.println(soilsensor.getVersion(), HEX);
+    isFirstCall = false;
+  }
+  return true;
+}
+
+bool initStatusButton(){
+
+  static bool isFirstCall = true;
+
+  if (isFirstCall){
+    
+    pinMode(statusBTNPin, INPUT_PULLUP);
+	  attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
+      
+    Serial.print("Successfully attached status button interrupt");
     isFirstCall = false;
   }
   return true;
@@ -78,7 +110,7 @@ void pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
   static bool isFirstCall = true;
 
   if (isFirstCall){
-    pinMode(pumpControl, OUTPUT);
+    pinMode(pumpControlPin, OUTPUT);
     isFirstCall = false;
   }
 
@@ -88,7 +120,7 @@ void pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
   
   //ramp up pump
   for(int pumpSpeed = 0; pumpSpeed <= maxPumpSpeed; pumpSpeed++){
-    analogWrite(pumpControl, pumpSpeed);
+    analogWrite(pumpControlPin, pumpSpeed);
     delay(rampDelay);
   }
 
@@ -96,7 +128,7 @@ void pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
 
   //ramp down pump
   for(int pumpSpeed = 0; pumpSpeed >= 0; pumpSpeed--){
-    analogWrite(pumpControl, pumpSpeed);
+    analogWrite(pumpControlPin, pumpSpeed);
     delay(rampDelay);
   }   
 
@@ -143,7 +175,6 @@ void messageHandler(String &topic, String &payload) {
   
 }
 
-
 void connectToMQTT() {
 
   net.setCACert(AWS_CERT_CA);
@@ -187,6 +218,107 @@ void sendToMQTT() {
   Serial.print("- payload:");
   Serial.println(messageBuffer);
 }
+
+/* LED */
+
+void setColor(int redValue, int greenValue, int blueValue){
+
+  static bool isFirstCall = true;
+
+  if (isFirstCall){
+    ledcAttachPin(RedLedPin, PWM1_Ch);
+    ledcSetup(PWM1_Ch, PWM1_Freq, PWM1_Res);
+    
+    ledcAttachPin(GreenLedPin, PWM2_Ch);
+    ledcSetup(PWM2_Ch, PWM2_Freq, PWM2_Res);
+    
+    ledcAttachPin(BlueLedPin, PWM3_Ch);
+    ledcSetup(PWM3_Ch, PWM3_Freq, PWM3_Res);
+    isFirstCall = false;
+  }
+  
+  if (redValue != 256){
+    redValue = 255 - redValue;
+  }
+  if (greenValue != 256){
+    greenValue = 255 - greenValue;
+  }
+  if (blueValue != 256){
+    blueValue = 255 - blueValue;
+  }
+  
+  ledcWrite(0,redValue); 
+  ledcWrite(1,greenValue);
+  ledcWrite(2,blueValue);
+}
+
+void flashLed(int redColorNumber, int greenColorNumber, int blueColorNumber, bool cycleRed, bool cycleGreen, bool cycleBlue, int fadeSpeed, int holdColorDelay, bool fadeIn, bool fadeOut, int fadeMultiple, int loopFadeDelay, bool turnOff){
+  //RGB Number breakdown
+  //255 is full color
+  //0 is white
+  //256 is off
+
+  for (int i = 1; i <= fadeMultiple; i++){
+
+    if(fadeIn){
+      for(int dutyCycle = 0; dutyCycle <= 255; dutyCycle++){   
+      
+        if (cycleRed){
+          setColor(dutyCycle,greenColorNumber,blueColorNumber);
+        }
+
+        if (cycleGreen){
+          setColor(redColorNumber,dutyCycle,blueColorNumber);
+        }
+
+        if (cycleBlue){
+          setColor(redColorNumber,greenColorNumber,dutyCycle);
+        }
+        
+        delay(fadeSpeed);
+      }
+    }
+    
+    if (holdColorDelay!= 0){
+      delay(holdColorDelay);
+    }
+
+    if(fadeOut){
+      for(int dutyCycle = 0; dutyCycle <= 255; dutyCycle++){
+        int reverseDudyCycle = 255- dutyCycle;    
+      
+        if (cycleRed){
+          setColor(reverseDudyCycle,greenColorNumber,blueColorNumber);
+        }
+
+        if (cycleGreen){
+          setColor(redColorNumber,reverseDudyCycle,blueColorNumber);
+        }
+
+        if (cycleBlue){
+          setColor(redColorNumber,reverseDudyCycle,dutyCycle);
+        }
+        
+        delay(fadeSpeed);
+      }
+    }
+    
+    if(turnOff){
+      setColor(256,256,256);
+    }
+
+    if (loopFadeDelay!= 0){
+      delay(loopFadeDelay);
+    }
+  }
+}
+
+/* Status Button */
+
+void IRAM_ATTR statusBtnTriggered() {
+	Serial.println("Status button pressed");
+}
+
 
 void setup() {
   Serial.begin(115200);
