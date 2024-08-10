@@ -6,10 +6,34 @@
 #include <MQTT.h>
 #include <ArduinoJson.h>
 #include <utilities.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+#include <AESLib.h>
+#include <Preferences.h>
 
 Adafruit_seesaw soilsensor;
 WiFiClientSecure net = WiFiClientSecure();
-MQTTClient client = MQTTClient(256);
+MQTTClient client = MQTTClient(1024);
+bool shadow_auto;
+bool shadow_pump;
+bool checkMQTTShadow = false; 
+
+/* BLE */
+BLEServer* pServer = NULL;
+BLECharacteristic* pCharacteristic = NULL;
+bool deviceConnected = false;
+const char* ssid = nullptr;
+const char* password = nullptr;
+
+/* Encryp & Storage */
+AESLib aesLib;
+
+const byte aesKey[] = {0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0xcf, 0x5a, 0xe4, 0x4a, 0x3e, 0x2e}; // 16 bytes key
+byte aesIV[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}; // 16 bytes IV
+
+Preferences preferences;
 
 /* Pump Control */
 int pumpControlPin = 9;
@@ -21,6 +45,7 @@ const byte statusBTNPin = 34;
 const byte GreenLedPin = 32;
 const byte RedLedPin = 26;
 const byte BlueLedPin = 27;
+bool keepBlinking = false;
 #define PWM1_Ch    0
 #define PWM1_Res   8
 #define PWM1_Freq  1000
@@ -42,8 +67,6 @@ struct soilSensorResponse {
   uint16_t soilCapacitive;
 };
 
-/* Init Functions */
-
 bool initSoilSensor(){
 
   static bool isFirstCall = true;
@@ -59,23 +82,6 @@ bool initSoilSensor(){
   }
   return true;
 }
-
-bool initStatusButton(){
-
-  static bool isFirstCall = true;
-
-  if (isFirstCall){
-    
-    pinMode(statusBTNPin, INPUT_PULLUP);
-	  attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
-      
-    Serial.print("Successfully attached status button interrupt");
-    isFirstCall = false;
-  }
-  return true;
-}
-
-/* Sensor Functions */
 
 soilSensorResponse readSoilSensor(soilSensorResponse currentSoilResponse) {
   
@@ -149,17 +155,33 @@ void correctSoilCapacitive(){
 
 }
 
-/* MQTT */
-
-void setupWifi(){
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+void getAndCheckShadowState() {
+  Serial.println("Retrieving initial shadow state...");
+  
+  if (client.publish(AWS_IOT_SHADOW_GET, "{}")) {
+    Serial.println("Shadow get request published");
+  } else {
+    Serial.println("Failed to publish shadow get request");
   }
-  Serial.println();
+}
+
+void updateShadowReportedState() {
+  StaticJsonDocument<256> doc;
+  JsonObject state = doc.createNestedObject("state");
+  JsonObject reported = state.createNestedObject("reported");
+  reported["auto"] = shadow_auto;
+  reported["pump"] = shadow_pump;
+
+  char jsonBuffer[512];
+  serializeJson(doc, jsonBuffer);
+
+  client.publish(AWS_IOT_SHADOW_UPDATE, jsonBuffer);
+
+  Serial.println("sent:");
+  Serial.print("- topic: ");
+  Serial.println(AWS_IOT_SHADOW_UPDATE);
+  Serial.print("- payload:");
+  Serial.println(jsonBuffer);
 }
 
 void messageHandler(String &topic, String &payload) {
@@ -168,11 +190,49 @@ void messageHandler(String &topic, String &payload) {
   Serial.println("- payload:");
   Serial.println(payload);
 
-  StaticJsonDocument<200> doc;
+  StaticJsonDocument<1024> doc;
   deserializeJson(doc, payload);
-  const char* message = doc["message"];
-  Serial.println(message);
+
+  if (topic == AWS_IOT_SHADOW_UPDATE_DELTA){
+    JsonObject shadow_state = doc["state"];
+
+    if (shadow_state.containsKey("auto")){
+      shadow_auto = shadow_state["auto"];
+    }
+
+    if (shadow_state.containsKey("pump")){
+      shadow_pump = shadow_state["pump"];
+    }
+
+    Serial.println("shadow_auto: " + String(shadow_auto));
+    Serial.println("shadow_pump: " + String(shadow_pump));
+    updateShadowReportedState();
+    return;
+  }
+
+  if (topic == AWS_IOT_SHADOW_ACCEPTED){
+    JsonObject shadow_state = doc["state"];
+    JsonObject shadow_desired = shadow_state["desired"];
+    JsonObject shadow_reported = shadow_state["reported"];
   
+    if (shadow_desired.containsKey("auto") && shadow_desired["auto"] != shadow_reported["auto"]) {
+      shadow_auto = shadow_desired["auto"];
+    }
+
+    if (shadow_desired.containsKey("pump") && shadow_desired["pump"] != shadow_reported["pump"]) {
+      shadow_pump = shadow_desired["pump"];
+    }
+
+    updateShadowReportedState();
+    return;
+  }
+
+  if (topic == AWS_IOT_SHADOW_REJECTED){
+    Serial.println("Failed to get shadow document");
+    return;
+  }
+
+
 }
 
 void connectToMQTT() {
@@ -198,25 +258,12 @@ void connectToMQTT() {
     return;
   }
 
-  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
+  client.subscribe(AWS_IOT_SHADOW_ACCEPTED);
+  client.subscribe(AWS_IOT_SHADOW_REJECTED);
+  client.subscribe(AWS_IOT_SHADOW_UPDATE_DELTA);
 
   Serial.println("ESP32  - AWS IoT Connected!");
-}
-
-void sendToMQTT() {
-  StaticJsonDocument<200> message;
-  message["timestamp"] = millis();
-  message["data"] = "HelloAWS"; 
-  char messageBuffer[512];
-  serializeJson(message, messageBuffer);
-
-  client.publish(AWS_IOT_PUBLISH_TOPIC, messageBuffer);
-
-  Serial.println("sent:");
-  Serial.print("- topic: ");
-  Serial.println(AWS_IOT_PUBLISH_TOPIC);
-  Serial.print("- payload:");
-  Serial.println(messageBuffer);
+  checkMQTTShadow = true; 
 }
 
 /* LED */
@@ -252,87 +299,193 @@ void setColor(int redValue, int greenValue, int blueValue){
   ledcWrite(2,blueValue);
 }
 
-void flashLed(int redColorNumber, int greenColorNumber, int blueColorNumber, bool cycleRed, bool cycleGreen, bool cycleBlue, int fadeSpeed, int holdColorDelay, bool fadeIn, bool fadeOut, int fadeMultiple, int loopFadeDelay, bool turnOff){
-  //RGB Number breakdown
-  //255 is full color
-  //0 is white
-  //256 is off
+void fadeToColor(int red, int green, int blue, int fadeDuration) {
+    for (int i = 0; i <= 255; i++) {
+        setColor(red * i / 255, green * i / 255, blue * i / 255);
+        delay(fadeDuration);
+    }
+}
 
-  for (int i = 1; i <= fadeMultiple; i++){
+void fadeInAndOutColor(int red, int green, int blue, int fadeDuration) {
+    while (keepBlinking) {
+        for (int i = 0; i <= 255; i++) {
+            if (!keepBlinking) return;
+            setColor(red * i / 255, green * i / 255, blue * i / 255);
+            delay(fadeDuration);
+        }
+        // Fade out to black
+        for (int i = 255; i >= 0; i--) {
+            if (!keepBlinking) return; 
+            setColor(red * i / 255, green * i / 255, blue * i / 255);
+            delay(fadeDuration);
+        }
+    }
+}
 
-    if(fadeIn){
-      for(int dutyCycle = 0; dutyCycle <= 255; dutyCycle++){   
-      
-        if (cycleRed){
-          setColor(dutyCycle,greenColorNumber,blueColorNumber);
+/* Data Storage */
+void encryptAndStore(const char* ssid, const char* password) {
+    int ssidLen = strlen(ssid);
+    int passwordLen = strlen(password);
+
+    byte encryptedSSID[64];
+    byte encryptedPassword[128];
+
+    aesLib.encrypt((byte*)ssid, ssidLen, encryptedSSID, aesKey, sizeof(aesKey), aesIV);
+
+    aesLib.encrypt((byte*)password, passwordLen, encryptedPassword, aesKey, sizeof(aesKey), aesIV);
+
+    preferences.begin("wifi", false);
+    preferences.putBytes("ssid", encryptedSSID, sizeof(encryptedSSID));
+    preferences.putBytes("password", encryptedPassword, sizeof(encryptedPassword));
+    preferences.end();
+}
+
+void loadAndDecrypt() {
+    byte encryptedSSID[64];
+    byte encryptedPassword[128];
+
+    preferences.begin("wifi", true);
+    size_t ssidLength = preferences.getBytes("ssid", encryptedSSID, sizeof(encryptedSSID));
+    size_t passwordLength = preferences.getBytes("password", encryptedPassword, sizeof(encryptedPassword));
+    preferences.end();
+
+    char ssidBuffer[32];
+    char passwordBuffer[64];
+    
+    aesLib.decrypt(encryptedSSID, ssidLength, (byte*)ssidBuffer, aesKey, sizeof(aesKey), aesIV);
+    aesLib.decrypt(encryptedPassword, passwordLength, (byte*)passwordBuffer, aesKey, sizeof(aesKey), aesIV);
+
+    ssid = strdup(ssidBuffer);
+    password = strdup(passwordBuffer);
+}
+
+/* BLE */
+
+class MyServerCallbacks : public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    deviceConnected = true;
+    Serial.println("Device connected");
+  }
+
+  void onDisconnect(BLEServer* pServer) {
+    deviceConnected = false;
+    Serial.println("Device disconnected");
+    // Start advertising again
+    //pServer->startAdvertising();
+    //Serial.println("Started advertising again");
+  }
+};
+
+void connectToWiFi() {
+    if (ssid && password) {
+        Serial.println("Attempting to connect to WiFi...");
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(ssid, password);
+
+        int maxRetries = 10;
+        int attempt = 0;
+        while (WiFi.status() != WL_CONNECTED && attempt < maxRetries) {
+            delay(1000);
+            Serial.print(".");
+            attempt++;
         }
 
-        if (cycleGreen){
-          setColor(redColorNumber,dutyCycle,blueColorNumber);
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println("\nConnected to WiFi");
+            keepBlinking = false;
+            setColor(0, 255, 0);
+            connectToMQTT();
+        } else {
+            Serial.println("\nFailed to connect to WiFi");
+            keepBlinking = false;
+            setColor(255, 0, 0); 
         }
+    }
+}
 
-        if (cycleBlue){
-          setColor(redColorNumber,greenColorNumber,dutyCycle);
-        }
-        
-        delay(fadeSpeed);
+class MyCallbacks: public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pCharacteristic) {
+    std::string value = pCharacteristic->getValue();
+    if (value.length() > 0) {
+      if (value.find("SSID:") == 0) {
+        ssid = value.substr(5).c_str();
+      } else if (value.find("PASS:") == 0) {
+        password = value.substr(5).c_str();
       }
     }
-    
-    if (holdColorDelay!= 0){
-      delay(holdColorDelay);
-    }
 
-    if(fadeOut){
-      for(int dutyCycle = 0; dutyCycle <= 255; dutyCycle++){
-        int reverseDudyCycle = 255- dutyCycle;    
-      
-        if (cycleRed){
-          setColor(reverseDudyCycle,greenColorNumber,blueColorNumber);
-        }
-
-        if (cycleGreen){
-          setColor(redColorNumber,reverseDudyCycle,blueColorNumber);
-        }
-
-        if (cycleBlue){
-          setColor(redColorNumber,reverseDudyCycle,dutyCycle);
-        }
-        
-        delay(fadeSpeed);
+    if (ssid && password) {
+      encryptAndStore(ssid, password);
+      connectToWiFi();
+      if (WiFi.status() == WL_CONNECTED){
+        pCharacteristic->setValue("Connected to WiFi!");
+        pCharacteristic->notify();
+      } else {
+        pCharacteristic->setValue("Failed to connect to WiFi.");
+        pCharacteristic->notify();
       }
-    }
-    
-    if(turnOff){
-      setColor(256,256,256);
-    }
-
-    if (loopFadeDelay!= 0){
-      delay(loopFadeDelay);
     }
   }
-}
+};
 
-/* Status Button */
+void beginBLE() {
+  BLEDevice::init("ESP32_BLE");
+  
+  BLESecurity *pSecurity = new BLESecurity();
+  pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_ONLY);
+
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  BLEService *pService = pServer->createService(BLEUUID((uint16_t)0xFFE0));
+  pCharacteristic = pService->createCharacteristic(
+                      BLEUUID((uint16_t)0xFFE1),
+                      BLECharacteristic::PROPERTY_READ |
+                      BLECharacteristic::PROPERTY_WRITE
+                    );
+
+  pCharacteristic->setCallbacks(new MyCallbacks());
+  pCharacteristic->addDescriptor(new BLE2902());
+
+  pService->start();
+  pServer->getAdvertising()->start();
+}
 
 void IRAM_ATTR statusBtnTriggered() {
-	Serial.println("Status button pressed");
+    detachInterrupt(statusBTNPin);
+    fadeInAndOutColor(255,0,0,500);
+    beginBLE();
 }
-
 
 void setup() {
   Serial.begin(115200);
+  delay(1000);
 
-  //initSoilSensor();
+  pinMode(statusBTNPin, INPUT_PULLUP);
 
-  setupWifi();
+  setColor(255,0,0);
 
-  connectToMQTT();
-
-  sendToMQTT();
+  loadAndDecrypt();
+  connectToWiFi();
+  
+  if (WiFi.status() != WL_CONNECTED) {
+	  attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
+  }
 
 }
 
 void loop() {
   client.loop();
+  
+  delay(10);
+  
+  if (WiFi.status() == WL_CONNECTED && checkMQTTShadow) {
+    getAndCheckShadowState();
+    checkMQTTShadow = false;
+  } 
+  
+  if (WiFi.status() != WL_CONNECTED && !deviceConnected) {
+    attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
+  }
+
 }
