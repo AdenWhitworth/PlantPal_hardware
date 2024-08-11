@@ -289,6 +289,8 @@ void connectToMQTT() {
 
   if (!client.connected()) {
     Serial.println("ESP32 - AWS IoT Timeout!");
+    keepBlinking = false;
+    setColor(255, 0, 0); 
     return;
   }
 
@@ -298,6 +300,8 @@ void connectToMQTT() {
   client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
 
   Serial.println("ESP32  - AWS IoT Connected!");
+  keepBlinking = false;
+  setColor(0, 255, 0);
   checkMQTTShadow = true; 
 }
 
@@ -404,12 +408,18 @@ class MyServerCallbacks : public BLEServerCallbacks {
 
   void onDisconnect(BLEServer* pServer) {
     deviceConnected = false;
-    Serial.println("Device disconnected");
-    // Start advertising again
-    //pServer->startAdvertising();
-    //Serial.println("Started advertising again");
+    Serial.println("Device disconnected and BLE turned off");
   }
 };
+
+void turnOffBle (){
+  if (ssid && ssid != ""){
+    btStop();
+    esp_bt_controller_disable();
+  }
+  
+  BLEDevice::deinit(true);
+}
 
 void connectToWiFi() {
     if (ssid && password) {
@@ -427,8 +437,6 @@ void connectToWiFi() {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.println("\nConnected to WiFi");
-            keepBlinking = false;
-            setColor(0, 255, 0);
             connectToMQTT();
         } else {
             Serial.println("\nFailed to connect to WiFi");
@@ -460,6 +468,9 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         pCharacteristic->notify();
       }
     }
+
+    turnOffBle();
+
   }
 };
 
@@ -487,10 +498,26 @@ void beginBLE() {
 }
 
 void IRAM_ATTR statusBtnTriggered() {
-    detachInterrupt(statusBTNPin);
-    checkInterupt = false;
-    fadeInAndOutColor(255,0,0,500);
+
+  if (keepBlinking) {
+    keepBlinking = false;
+
+    if (client.connected()){
+      setColor(0, 255, 0); 
+    } else {
+      setColor(255, 0, 0); 
+    }
+
+    turnOffBle();
+  } else {
+    if (client.connected()){
+      fadeInAndOutColor(255,0,0,500);
+    } else {
+      fadeInAndOutColor(0,255,0,500);
+    }
+    
     beginBLE();
+  }
 }
 
 void setup() {
@@ -503,11 +530,8 @@ void setup() {
 
   loadAndDecrypt();
   connectToWiFi();
-  
-  if (WiFi.status() != WL_CONNECTED) {
-	  attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
-    checkInterupt = true;
-  }
+
+  attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
 
 }
 
@@ -520,11 +544,6 @@ void loop() {
     getAndCheckShadowState();
     checkMQTTShadow = false;
   } 
-  
-  if (WiFi.status() != WL_CONNECTED && !deviceConnected && !checkInterupt) {
-    attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
-    checkInterupt = true;
-  }
 
   unsigned long currentMillis = millis();
 
