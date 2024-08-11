@@ -19,6 +19,7 @@ MQTTClient client = MQTTClient(1024);
 bool shadow_auto;
 bool shadow_pump;
 bool checkMQTTShadow = false; 
+bool checkInterupt = false;
 
 /* BLE */
 BLEServer* pServer = NULL;
@@ -61,6 +62,9 @@ int maxSoilCapacitive = 2000; //very wet soil
 int minSoilCapacitive = 200; // very dry soil
 int targetSoilCapacitive = 1200; //watered to this point
 int triggerSoilCapacitive = 600; //begin watering at this point
+unsigned long previousMillis = 0;
+const unsigned long interval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+String catNum = "A1B2C3";
 
 struct soilSensorResponse {
   float soilTemperature;
@@ -184,6 +188,25 @@ void updateShadowReportedState() {
   Serial.println(jsonBuffer);
 }
 
+void logSoilSensor(soilSensorResponse currentSoilResponse, bool didWater) {
+  StaticJsonDocument<256> doc;
+  doc["cat_num"] = catNum;
+  doc["soil_temp"] = currentSoilResponse.soilTemperature;
+  doc["soil_cap"] = currentSoilResponse.soilCapacitive;
+  doc["water"] = didWater;
+
+  char jsonBuffer[512];
+  serializeJson(doc, jsonBuffer);
+
+  client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
+
+  Serial.println("sent:");
+  Serial.print("- topic: ");
+  Serial.println(AWS_IOT_PUBLISH_TOPIC);
+  Serial.print("- payload:");
+  Serial.println(jsonBuffer);
+}
+
 void messageHandler(String &topic, String &payload) {
   Serial.println("received:");
   Serial.println("- topic: " + topic);
@@ -232,6 +255,14 @@ void messageHandler(String &topic, String &payload) {
     return;
   }
 
+  if (topic == AWS_IOT_SUBSCRIBE_TOPIC){
+    if (doc["error"]) {
+      Serial.println("Failed to log sensor data");
+    } else {
+      Serial.println("Success logging sensor data");
+    }
+  }
+
 
 }
 
@@ -261,6 +292,7 @@ void connectToMQTT() {
   client.subscribe(AWS_IOT_SHADOW_ACCEPTED);
   client.subscribe(AWS_IOT_SHADOW_REJECTED);
   client.subscribe(AWS_IOT_SHADOW_UPDATE_DELTA);
+  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
 
   Serial.println("ESP32  - AWS IoT Connected!");
   checkMQTTShadow = true; 
@@ -453,6 +485,7 @@ void beginBLE() {
 
 void IRAM_ATTR statusBtnTriggered() {
     detachInterrupt(statusBTNPin);
+    checkInterupt = false;
     fadeInAndOutColor(255,0,0,500);
     beginBLE();
 }
@@ -470,6 +503,7 @@ void setup() {
   
   if (WiFi.status() != WL_CONNECTED) {
 	  attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
+    checkInterupt = true;
   }
 
 }
@@ -484,8 +518,25 @@ void loop() {
     checkMQTTShadow = false;
   } 
   
-  if (WiFi.status() != WL_CONNECTED && !deviceConnected) {
+  if (WiFi.status() != WL_CONNECTED && !deviceConnected && !checkInterupt) {
     attachInterrupt(statusBTNPin, statusBtnTriggered, FALLING);
+    checkInterupt = true;
+  }
+
+  unsigned long currentMillis = millis();
+
+  if (client.connected()){
+    if (currentMillis - previousMillis >= interval){
+      previousMillis = currentMillis;
+
+      soilSensorResponse currentSoilResponse;
+      currentSoilResponse = readSoilSensor(currentSoilResponse);
+
+      logSoilSensor(currentSoilResponse,false);
+
+      Serial.println("Soil assessment published");
+
+    }
   }
 
 }
