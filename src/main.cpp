@@ -90,6 +90,8 @@ bool initSoilSensor(){
 
 soilSensorResponse readSoilSensor(soilSensorResponse currentSoilResponse) {
   
+  initSoilSensor();
+
   currentSoilResponse = {
     soilsensor.getTemp(),
     soilsensor.touchRead(0)
@@ -550,12 +552,28 @@ void loop() {
       
       if (soilNeedsWater){
         correctSoilCapacitive();
-        
+
         soilSensorResponse currentSoilResponse;
         currentSoilResponse = readSoilSensor(currentSoilResponse);
 
         logSoilSensor(currentSoilResponse,true);
+
+        Serial.println("Soil auto watering published");
       }
     }
+  }
+
+  if (client.connected() && !shadow_auto && shadow_pump){
+
+    Serial.println("User requests to pump water");
+
+    correctSoilCapacitive();
+      
+    soilSensorResponse currentSoilResponse;
+    currentSoilResponse = readSoilSensor(currentSoilResponse);
+
+    logSoilSensor(currentSoilResponse,true);
+    
+    Serial.println("Soil manual watering published");
   }
 }
