@@ -573,6 +573,8 @@ void loop() {
     currentSoilResponse = readSoilSensor(currentSoilResponse);
 
     logSoilSensor(currentSoilResponse,true);
+    shadow_pump = false;
+    updateShadowReportedState();
     
     Serial.println("Soil manual watering published");
   }
