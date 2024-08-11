@@ -63,7 +63,8 @@ int minSoilCapacitive = 200; // very dry soil
 int targetSoilCapacitive = 1200; //watered to this point
 int triggerSoilCapacitive = 600; //begin watering at this point
 unsigned long previousMillis = 0;
-const unsigned long interval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+const unsigned long logInterval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
+const unsigned long autoInterval = 60 * 1000; // 1 minute in milliseconds
 String catNum = "A1B2C3";
 
 struct soilSensorResponse {
@@ -526,7 +527,7 @@ void loop() {
   unsigned long currentMillis = millis();
 
   if (client.connected()){
-    if (currentMillis - previousMillis >= interval){
+    if (currentMillis - previousMillis >= logInterval){
       previousMillis = currentMillis;
 
       soilSensorResponse currentSoilResponse;
@@ -539,4 +540,22 @@ void loop() {
     }
   }
 
+  if (client.connected() && shadow_auto){
+    if (currentMillis - previousMillis >= autoInterval){
+      previousMillis = currentMillis;
+
+      bool soilNeedsWater = assessSoil();
+
+      Serial.println(soilNeedsWater ? "Soil needs water" : "Soil moisture is sufficient");
+      
+      if (soilNeedsWater){
+        correctSoilCapacitive();
+        
+        soilSensorResponse currentSoilResponse;
+        currentSoilResponse = readSoilSensor(currentSoilResponse);
+
+        logSoilSensor(currentSoilResponse,true);
+      }
+    }
+  }
 }
