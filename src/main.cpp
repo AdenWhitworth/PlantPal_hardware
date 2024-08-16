@@ -65,7 +65,6 @@ int triggerSoilCapacitive = 600; //begin watering at this point
 unsigned long previousMillis = 0;
 const unsigned long logInterval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 const unsigned long autoInterval = 60 * 1000; // 1 minute in milliseconds
-String catNum = "A1B2C3";
 
 struct soilSensorResponse {
   float soilTemperature;
