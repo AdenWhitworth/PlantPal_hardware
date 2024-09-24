@@ -37,82 +37,11 @@ Preferences preferences;
 /* Buttons */
 const byte statusBTNPin = 34;
 
-/* RGB LED */
-const byte GreenLedPin = 32;
-const byte RedLedPin = 26;
-const byte BlueLedPin = 27;
-bool keepBlinking = false;
-#define PWM1_Ch    0
-#define PWM1_Res   8
-#define PWM1_Freq  1000
-#define PWM2_Ch    1
-#define PWM2_Res   8
-#define PWM2_Freq  1000
-#define PWM3_Ch    2
-#define PWM3_Res   8
-#define PWM3_Freq  1000
-
 /* Global Variables */
 unsigned long previousMillis = 0;
 const unsigned long logInterval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 const unsigned long autoInterval = 60 * 1000; // 1 minute in milliseconds
 
-
-/* LED */
-
-void setColor(int redValue, int greenValue, int blueValue){
-
-  static bool isFirstCall = true;
-
-  if (isFirstCall){
-    ledcAttachPin(RedLedPin, PWM1_Ch);
-    ledcSetup(PWM1_Ch, PWM1_Freq, PWM1_Res);
-    
-    ledcAttachPin(GreenLedPin, PWM2_Ch);
-    ledcSetup(PWM2_Ch, PWM2_Freq, PWM2_Res);
-    
-    ledcAttachPin(BlueLedPin, PWM3_Ch);
-    ledcSetup(PWM3_Ch, PWM3_Freq, PWM3_Res);
-    isFirstCall = false;
-  }
-  
-  if (redValue != 256){
-    redValue = 255 - redValue;
-  }
-  if (greenValue != 256){
-    greenValue = 255 - greenValue;
-  }
-  if (blueValue != 256){
-    blueValue = 255 - blueValue;
-  }
-  
-  ledcWrite(0,redValue); 
-  ledcWrite(1,greenValue);
-  ledcWrite(2,blueValue);
-}
-
-void fadeToColor(int red, int green, int blue, int fadeDuration) {
-    for (int i = 0; i <= 255; i++) {
-        setColor(red * i / 255, green * i / 255, blue * i / 255);
-        delay(fadeDuration);
-    }
-}
-
-void fadeInAndOutColor(int red, int green, int blue, int fadeDuration) {
-    while (keepBlinking) {
-        for (int i = 0; i <= 255; i++) {
-            if (!keepBlinking) return;
-            setColor(red * i / 255, green * i / 255, blue * i / 255);
-            delay(fadeDuration);
-        }
-        // Fade out to black
-        for (int i = 255; i >= 0; i--) {
-            if (!keepBlinking) return; 
-            setColor(red * i / 255, green * i / 255, blue * i / 255);
-            delay(fadeDuration);
-        }
-    }
-}
 
 void getAndCheckShadowState() {
   Serial.println("Retrieving initial shadow state...");
