@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <SPI.h>
-#include "Adafruit_seesaw.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <MQTT.h>
@@ -13,7 +12,6 @@
 #include <AESLib.h>
 #include <Preferences.h>
 
-Adafruit_seesaw soilsensor;
 WiFiClientSecure net = WiFiClientSecure();
 MQTTClient client = MQTTClient(1024);
 bool shadow_auto;
@@ -36,9 +34,6 @@ byte aesIV[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a
 
 Preferences preferences;
 
-/* Pump Control */
-int pumpControlPin = 9;
-
 /* Buttons */
 const byte statusBTNPin = 34;
 
@@ -58,108 +53,10 @@ bool keepBlinking = false;
 #define PWM3_Freq  1000
 
 /* Global Variables */
-int maxSoilCapacitive = 2000; //very wet soil
-int minSoilCapacitive = 200; // very dry soil
-int targetSoilCapacitive = 1200; //watered to this point
-int triggerSoilCapacitive = 600; //begin watering at this point
 unsigned long previousMillis = 0;
 const unsigned long logInterval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 const unsigned long autoInterval = 60 * 1000; // 1 minute in milliseconds
 
-struct soilSensorResponse {
-  float soilTemperature;
-  uint16_t soilCapacitive;
-};
-
-bool initSoilSensor(){
-
-  static bool isFirstCall = true;
-
-  if (isFirstCall){
-    if (!soilsensor.begin(0x36)) {
-    Serial.println("Couldnt find Adafruit Soil Sensor!");
-      return false;
-    }
-    Serial.print("Seesaw Soil Sensor started! version: ");
-    Serial.println(soilsensor.getVersion(), HEX);
-    isFirstCall = false;
-  }
-  return true;
-}
-
-soilSensorResponse readSoilSensor(soilSensorResponse currentSoilResponse) {
-  
-  initSoilSensor();
-
-  currentSoilResponse = {
-    soilsensor.getTemp(),
-    soilsensor.touchRead(0)
-  };
-
-  return currentSoilResponse;
-
-}
-
-bool assessSoil(){
-
-  soilSensorResponse currentSoilResponse;
-  currentSoilResponse = readSoilSensor(currentSoilResponse);
-  Serial.println("Soil Temp: " + String(currentSoilResponse.soilTemperature));
-  Serial.println("Soil Cap: " + String(currentSoilResponse.soilCapacitive));
-
-  if (int(currentSoilResponse.soilCapacitive) < triggerSoilCapacitive){
-    return true;
-  } else {
-    return false;
-  }
-
-}
-
-/* Pump Functions */
-
-void pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration){
-
-  static bool isFirstCall = true;
-
-  if (isFirstCall){
-    pinMode(pumpControlPin, OUTPUT);
-    isFirstCall = false;
-  }
-
-  if ( maxPumpSpeed > 255){
-    return;
-  }
-  
-  //ramp up pump
-  for(int pumpSpeed = 0; pumpSpeed <= maxPumpSpeed; pumpSpeed++){
-    analogWrite(pumpControlPin, pumpSpeed);
-    delay(rampDelay);
-  }
-
-  delay(pumpDuration);
-
-  //ramp down pump
-  for(int pumpSpeed = 0; pumpSpeed >= 0; pumpSpeed--){
-    analogWrite(pumpControlPin, pumpSpeed);
-    delay(rampDelay);
-  }   
-
-}
-
-void correctSoilCapacitive(){
-
-  soilSensorResponse currentSoilResponse;
-  currentSoilResponse = readSoilSensor(currentSoilResponse);
-
-  while (int(currentSoilResponse.soilCapacitive) < targetSoilCapacitive && int(currentSoilResponse.soilCapacitive) > triggerSoilCapacitive){
-
-    pumpWater(80,5,1000);
-
-    currentSoilResponse = readSoilSensor(currentSoilResponse);
-
-  }
-
-}
 
 /* LED */
 
