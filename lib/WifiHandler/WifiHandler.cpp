@@ -9,7 +9,7 @@ const char* ssid = nullptr;
 const char* password = nullptr; 
 
 void connectToWiFi() {
-    if (ssid && password) {
+    if (!ssid && !password) {
         Serial.println("Wifi ssid and password required to connect");
         return;
     }

@@ -6,6 +6,7 @@
 #include <BLE2902.h>
 #include "WifiHandler.h"
 #include "Encryption.h"
+#include "../../src/utilities.h"
 
 BLEServer* pServer = NULL;
 BLECharacteristic* pCharacteristic = NULL;
@@ -62,7 +63,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 };
 
 void beginBLE() {
-  BLEDevice::init("ESP32_BLE");
+  BLEDevice::init(catNum);
   
   BLESecurity *pSecurity = new BLESecurity();
   pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_ONLY);
