@@ -5,30 +5,24 @@
 #include "PumpControlConstants.h"
 #include "SoilSensorConstants.h"
 
-void pumpWater(int maxPumpSpeed, int rampDelay, int pumpDuration) {
+void pumpWater(int pumpDuration) {
   static bool isFirstCall = true;
   if (isFirstCall) {
     pinMode(pumpControlPin, OUTPUT);
+    digitalWrite(pumpControlPin, LOW);
     isFirstCall = false;
   }
 
-  for (int pumpSpeed = 0; pumpSpeed <= maxPumpSpeed; pumpSpeed++) {
-    analogWrite(pumpControlPin, pumpSpeed);
-    delay(rampDelay);
-  }
-
+  digitalWrite(pumpControlPin, HIGH);
   delay(pumpDuration);
-
-  for (int pumpSpeed = maxPumpSpeed; pumpSpeed >= 0; pumpSpeed--) {
-    analogWrite(pumpControlPin, pumpSpeed);
-    delay(rampDelay);
-  }
+  digitalWrite(pumpControlPin, LOW);
+  
 }
 
 void correctSoilCapacitive() {
   soilSensorResponse currentSoilResponse = readSoilSensor(currentSoilResponse);
   while (currentSoilResponse.soilCapacitive < SoilSettings::TARGET_CAPACITIVE && currentSoilResponse.soilCapacitive > SoilSettings::TRIGGER_CAPACITIVE) {
-    pumpWater(PumpSettings::MAX_PUMP_SPEED, PumpSettings::RAMP_DELAY, PumpSettings::PUMP_DURATION);
+    pumpWater(PumpSettings::PUMP_DURATION);
     currentSoilResponse = readSoilSensor(currentSoilResponse);
   }
 }

@@ -6,6 +6,7 @@ extern bool shadow_auto;
 extern bool shadow_pump;
 extern bool checkMQTTShadow; 
 extern bool checkInterupt;
+void logError(const String& context, const String& errorMessage);
 void getAndCheckShadowState();
 void updateShadowReportedState();
 void logSoilSensor(soilSensorResponse currentSoilResponse, bool didWater);

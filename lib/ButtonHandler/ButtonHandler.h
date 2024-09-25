@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+void handleStatusButtonActions();
 void setupStatusButtonInterrupt();
 void attachStatusButtonInterrupt();
 void IRAM_ATTR statusBtnTriggered();

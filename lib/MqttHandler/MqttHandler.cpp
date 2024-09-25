@@ -8,6 +8,7 @@
 #include "SoilSensor.h"
 #include "WifiHandler.h"
 #include "LedControlConstants.h"
+#include "MqttHandlerConstants.h"
 
 WiFiClientSecure net;
 MQTTClient client(1024);
@@ -17,13 +18,20 @@ bool shadow_pump;
 bool checkMQTTShadow = false; 
 bool checkInterupt = false;
 
+void logError(const String& context, const String& errorMessage) {
+  Serial.print("Error in ");
+  Serial.print(context);
+  Serial.print(": ");
+  Serial.println(errorMessage);
+}
+
 void getAndCheckShadowState() {
   Serial.println("Retrieving initial shadow state...");
   
   if (client.publish(AWS_IOT_SHADOW_GET, "{}")) {
     Serial.println("Shadow get request published");
   } else {
-    Serial.println("Failed to publish shadow get request");
+    logError("getAndCheckShadowState", "Failed to publish shadow get request");
   }
 }
 
@@ -72,7 +80,12 @@ void messageHandler(String &topic, String &payload) {
   Serial.println(payload);
 
   StaticJsonDocument<1024> doc;
-  deserializeJson(doc, payload);
+  DeserializationError error = deserializeJson(doc, payload);
+
+  if (error) {
+    logError("Message Handler", "Failed to deserialize JSON: " + String(error.c_str()));
+    return;
+  }
 
   if (topic == AWS_IOT_SHADOW_UPDATE_DELTA){
     JsonObject shadow_state = doc["state"];
@@ -120,8 +133,6 @@ void messageHandler(String &topic, String &payload) {
       Serial.println("Success logging sensor data");
     }
   }
-
-
 }
 
 void connectToMQTT() {
@@ -136,11 +147,17 @@ void connectToMQTT() {
 
   Serial.print("ESP32 - Connecting to MQTT broker");
 
-    while (!client.connect(THINGNAME)) {
-    Serial.print(".");
-    delay(100);
+  int attempts = 0;
+  while (!client.connect(THINGNAME) && attempts < MqttSettings::MAX_RETRIES) {
+      Serial.print(".");
+      delay(1000); // Wait before retrying
+      attempts++;
   }
-  Serial.println();
+
+  if (attempts == MqttSettings::MAX_RETRIES) {
+      logError("MQTT Connection", "Exceeded maximum connection attempts");
+      return;
+  }
 
   if (!checkMqttStatus()) {
     Serial.println("ESP32 - AWS IoT Timeout!");

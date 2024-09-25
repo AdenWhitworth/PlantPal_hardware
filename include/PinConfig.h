@@ -2,7 +2,7 @@
 #define PINCONFIG_H
 
 /* Pump Control */
-const int pumpControlPin = 9;
+const int pumpControlPin = 12;
 
 /* RGB LED */
 const byte GreenLedPin = 32;
@@ -10,6 +10,6 @@ const byte RedLedPin = 26;
 const byte BlueLedPin = 27;
 
 /* Buttons */
-const byte statusBTNPin = 34;
+#define statusBTNPin  4
 
 #endif

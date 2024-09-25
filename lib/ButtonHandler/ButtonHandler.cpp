@@ -6,8 +6,23 @@
 #include "../../include/PinConfig.h"
 #include "LedControlConstants.h"
 
-void IRAM_ATTR statusBtnTriggered() {
+volatile bool statusButtonPressed = false;
 
+void IRAM_ATTR statusBtnTriggered() {
+  static unsigned long last_interrupt_time = 0;
+  unsigned long interrupt_time = millis();
+
+  if (interrupt_time - last_interrupt_time > 200) {
+    statusButtonPressed = true;
+  }
+  last_interrupt_time = interrupt_time;
+}
+
+void handleStatusButtonActions(){
+  if (!statusButtonPressed){
+    return;
+  }
+  
   if (keepBlinking) {
     keepBlinking = false;
 
@@ -27,11 +42,12 @@ void IRAM_ATTR statusBtnTriggered() {
     
     beginBLE();
   }
+
+  statusButtonPressed = false;
 }
 
 void setupStatusButtonInterrupt() {
-    pinMode(statusBTNPin, INPUT_PULLUP);
-    
+  pinMode(statusBTNPin, INPUT_PULLUP);
 }
 
 void attachStatusButtonInterrupt(){

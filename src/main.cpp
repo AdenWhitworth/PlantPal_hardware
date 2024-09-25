@@ -14,7 +14,7 @@ void setup() {
   delay(1000);
 
   setupStatusButtonInterrupt();
-  fadeToColor(ColorSettings::GREEN, 100); 
+  fadeToColor(ColorSettings::WHITE, 100); 
   loadAndDecrypt();
   connectToWiFi();
   attachStatusButtonInterrupt();
@@ -25,6 +25,8 @@ void loop() {
   
   delay(10);
   
+  handleStatusButtonActions();
+
   retrieveShadowOnMqttConnection();
 
   unsigned long currentMillis = millis();
