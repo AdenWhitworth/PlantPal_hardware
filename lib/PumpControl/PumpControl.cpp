@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "SoilSensor.h"
 #include "PumpControl.h"
-#include "PinConfig.h"
+#include "../../include/PinConfig.h"
 #include "PumpControlConstants.h"
 #include "SoilSensorConstants.h"
 

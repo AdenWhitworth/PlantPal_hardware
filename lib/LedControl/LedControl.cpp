@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "LedControl.h"
 #include "LedControlConstants.h"
-#include "PinConfig.h"
+#include "../../include/PinConfig.h"
 
 bool keepBlinking = false;
 
@@ -38,25 +38,25 @@ void setColor(int redValue, int greenValue, int blueValue){
   ledcWrite(2,blueValue);
 }
 
-void fadeToColor(int red, int green, int blue, int fadeDuration) {
-    for (int i = 0; i <= 255; i++) {
-        setColor(red * i / 255, green * i / 255, blue * i / 255);
-        delay(fadeDuration);
-    }
+void fadeToColor(const int color[3], int fadeDuration) {
+  for (int i = 0; i <= 255; i++) {
+    setColor(color[0] * i / 255, color[1] * i / 255, color[2] * i / 255);
+    delay(fadeDuration);
+  }
 }
 
-void fadeInAndOutColor(int red, int green, int blue, int fadeDuration) {
-    while (keepBlinking) {
-        for (int i = 0; i <= 255; i++) {
-            if (!keepBlinking) return;
-            setColor(red * i / 255, green * i / 255, blue * i / 255);
-            delay(fadeDuration);
-        }
-        
-        for (int i = 255; i >= 0; i--) {
-            if (!keepBlinking) return; 
-            setColor(red * i / 255, green * i / 255, blue * i / 255);
-            delay(fadeDuration);
-        }
+void fadeInAndOutColor(const int color[3], int fadeDuration) {
+  while (keepBlinking) {
+    for (int i = 0; i <= 255; i++) {
+      if (!keepBlinking) return;
+      setColor(color[0] * i / 255, color[1] * i / 255, color[2] * i / 255);
+      delay(fadeDuration);
     }
+    
+    for (int i = 255; i >= 0; i--) {
+      if (!keepBlinking) return; 
+      setColor(color[0] * i / 255, color[1] * i / 255, color[2] * i / 255);
+      delay(fadeDuration);
+    }
+  }
 }

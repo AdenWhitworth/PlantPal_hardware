@@ -3,7 +3,7 @@
 
 extern bool keepBlinking;
 void setColor(int redValue, int greenValue, int blueValue);
-void fadeToColor(int red, int green, int blue, int fadeDuration);
-void fadeInAndOutColor(int red, int green, int blue, int fadeDuration);
+void fadeToColor(const int color[3], int fadeDuration);
+void fadeInAndOutColor(const int color[3], int fadeDuration);
 
 #endif

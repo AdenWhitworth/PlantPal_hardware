@@ -9,5 +9,7 @@ const byte GreenLedPin = 32;
 const byte RedLedPin = 26;
 const byte BlueLedPin = 27;
 
+/* Buttons */
+const byte statusBTNPin = 34;
 
 #endif
