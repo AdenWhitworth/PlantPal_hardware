@@ -19,28 +19,31 @@ void IRAM_ATTR statusBtnTriggered() {
 }
 
 void handleStatusButtonActions(){
+  static bool bleInit = false;
   if (!statusButtonPressed){
     return;
   }
-  
-  if (keepBlinking) {
-    keepBlinking = false;
 
-    if (checkMqttStatus()){
-      fadeToColor(ColorSettings::GREEN, 100);
-    } else {
-      fadeToColor(ColorSettings::RED, 100); 
-    }
+  if (keepBlinking) {
+    endBlinking(currentColor);
 
     turnOffBle();
   } else {
-    if (checkMqttStatus()){
-      fadeInAndOutColor(ColorSettings::RED, 500);
-    } else {
-      fadeInAndOutColor(ColorSettings::GREEN, 500);
+
+    if(!keepBlinking){
+      if (checkMqttStatus()){
+        beginBlinking(ColorSettings::GREEN);
+      } else {
+        beginBlinking(ColorSettings::RED);
+      }
     }
     
-    beginBLE();
+    if (bleInit){
+      startAdvertising();
+    } else {
+      bleInit = true;
+      beginBLE();
+    }
   }
 
   statusButtonPressed = false;

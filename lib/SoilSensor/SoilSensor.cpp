@@ -2,6 +2,7 @@
 #include <Adafruit_seesaw.h>
 #include <Arduino.h>
 #include "SoilSensorConstants.h"
+ #include <SPI.h>
 
 Adafruit_seesaw soilsensor;
 

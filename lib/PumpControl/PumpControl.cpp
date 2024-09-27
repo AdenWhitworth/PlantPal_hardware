@@ -14,7 +14,7 @@ void pumpWater(int pumpDuration) {
   }
 
   digitalWrite(pumpControlPin, HIGH);
-  delay(pumpDuration);
+  vTaskDelay(pdMS_TO_TICKS(pumpDuration));
   digitalWrite(pumpControlPin, LOW);
   
 }

@@ -2,7 +2,7 @@
 #define WIFI_HANDLER_CONSTANTS_H
 
 namespace WifiSettings {
-    const int MAX_RETRIES = 10;
+    const int MAX_RETRIES = 30;
 }
 
 #endif

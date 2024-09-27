@@ -150,7 +150,7 @@ void connectToMQTT() {
   int attempts = 0;
   while (!client.connect(THINGNAME) && attempts < MqttSettings::MAX_RETRIES) {
       Serial.print(".");
-      delay(1000); // Wait before retrying
+      vTaskDelay(pdMS_TO_TICKS(1000));
       attempts++;
   }
 
@@ -162,7 +162,7 @@ void connectToMQTT() {
   if (!checkMqttStatus()) {
     Serial.println("ESP32 - AWS IoT Timeout!");
     keepBlinking = false;
-    fadeToColor(ColorSettings::RED, 100); 
+    fadeToColor(ColorSettings::RED); 
     return;
   }
 
@@ -173,7 +173,7 @@ void connectToMQTT() {
 
   Serial.println("ESP32  - AWS IoT Connected!");
   keepBlinking = false;
-  fadeToColor(ColorSettings::GREEN, 100);
+  endBlinking(ColorSettings::GREEN);
   checkMQTTShadow = true; 
 }
 

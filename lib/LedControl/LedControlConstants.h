@@ -16,6 +16,8 @@ namespace ColorSettings {
     const int RED[3] = {255, 0, 0};
     const int BLUE[3] = {0, 0, 255};
     const int WHITE[3] = {255, 255, 255};
+    const int OFF[3] = { 256, 256, 256 };
+    const int FADEDURATION = 5;
 }
 
 #endif
