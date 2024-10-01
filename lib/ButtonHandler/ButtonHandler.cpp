@@ -32,18 +32,13 @@ void handleStatusButtonActions(){
 
     if(!keepBlinking){
       if (checkMqttStatus()){
-        beginBlinking(ColorSettings::GREEN);
+        beginBlinking(assessmentColor());
       } else {
-        beginBlinking(ColorSettings::RED);
+        beginBlinking(ColorSettings::ORANGE);
       }
     }
     
-    if (bleInit){
-      startAdvertising();
-    } else {
-      bleInit = true;
-      beginBLE();
-    }
+    beginBLE();
   }
 
   statusButtonPressed = false;

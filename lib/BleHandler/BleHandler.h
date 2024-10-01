@@ -4,7 +4,6 @@
 extern bool deviceConnected;
 void turnOffBle();
 void beginBLE();
-void startAdvertising();
-void stopAdvertising();
+void handleNewCredentials();
 
 #endif

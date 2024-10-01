@@ -7,6 +7,7 @@
 #include "WifiHandler.h"
 #include "ButtonHandler.h"
 #include "SoilAssessment.h"
+#include "BleHandler.h"
 #include "LedControlConstants.h"
 #include "../../include/PinConfig.h"
 
@@ -30,8 +31,8 @@ void loop() {
   
   mqttLoop();
   
-  delay(10);
-  
+  handleStrayMqttDisconnect();
+
   handleStatusButtonActions();
   
   retrieveShadowOnMqttConnection();
@@ -42,4 +43,5 @@ void loop() {
   scheduledAutoWaterAssessment(currentMillis);
   manualWaterAssessment();
   
+  handleNewCredentials();
 }

@@ -13,5 +13,7 @@ void fadeLEDTask(void *pvParameters);
 void beginBlinking(const int color[3]);
 void endBlinking(const int color[3]);
 void setCurrentColor(const int color[3]);
+void switchBlinkingColor(const int color[3]);
+const int* assessmentColor();
 
 #endif

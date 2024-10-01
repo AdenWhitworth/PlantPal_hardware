@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "LedControl.h"
 #include "LedControlConstants.h"
+#include "SoilSensor.h"
 #include "../../include/PinConfig.h"
 
 volatile bool keepBlinking = false;
@@ -109,8 +110,26 @@ void endBlinking(const int color[3]){
   fadeToColor(color);
 }
 
+void switchBlinkingColor(const int color[3]){
+  if (ledTaskHandle != NULL) {
+    vTaskDelete(ledTaskHandle);
+    ledTaskHandle = NULL;
+  }
+
+  beginBlinking(color);
+}
+
 void setCurrentColor(const int color[3]) {
   currentColor[0] = color[0];
   currentColor[1] = color[1];
   currentColor[2] = color[2];
+}
+
+const int* assessmentColor(){
+  if (assessSoil()){
+    return ColorSettings::RED;
+  } else {
+    return ColorSettings::GREEN;
+  }
+  
 }

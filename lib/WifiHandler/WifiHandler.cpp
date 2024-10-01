@@ -9,10 +9,23 @@
 String ssid = "";
 String password = "";
 
+void checkDisconnections() {
+    if (checkMqttStatus()) {
+        disconnectFromMQTT();
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("Already connected to WiFi, disconnecting...");
+        WiFi.disconnect(); 
+        vTaskDelay(pdMS_TO_TICKS(1000));
+        Serial.println("Disconnected from previous WiFi.");
+    }
+}
+
 void connectToWiFi() {
     if (ssid.isEmpty() && password.isEmpty()) {
         Serial.println("Wifi ssid and password required to connect");
-        endBlinking(ColorSettings::RED);
+        endBlinking(ColorSettings::ORANGE);
         return;
     }
 
@@ -34,15 +47,13 @@ void connectToWiFi() {
     } 
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nConnected to WiFi");
+        Serial.println("Connected to WiFi");
         connectToMQTT();
     } else {
-        Serial.println("\nFailed to connect to WiFi");
-
         Serial.print("WiFi connection failed with error code: ");
         Serial.println(WiFi.status());
 
-        endBlinking(ColorSettings::RED);
+        endBlinking(ColorSettings::ORANGE);
     }
 }
 
