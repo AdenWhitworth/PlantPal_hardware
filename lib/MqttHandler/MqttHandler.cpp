@@ -64,9 +64,7 @@ void updateShadowReportedState() {
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
   
-  if (shadow_auto){
-    reported["auto"] = shadow_auto;
-  }
+  reported["auto"] = shadow_auto;
 
   if (shadow_pump){
     reported["pump"] = shadow_pump;
@@ -101,22 +99,26 @@ void logSoilSensor(soilSensorResponse currentSoilResponse, bool didWater) {
 }
 
 void handleShadowUpdateDelta(JsonObject &shadow_state){
+  
+  Serial.println("***************");
+  Serial.println("Shadow Update Delta");
+  
+  
   bool recieved_shadow_auto;
   bool recieved_shadow_pump;
 
-  JsonObject shadow_desired = shadow_state["desired"];
-
-  if (shadow_desired.containsKey("auto")){
-    recieved_shadow_auto = shadow_desired["auto"].as<int>() == 1;
+  if (shadow_state.containsKey("auto")){
+    recieved_shadow_auto = shadow_state["auto"].as<int>() == 1;
   }
 
-  if (shadow_desired.containsKey("pump")){
-    recieved_shadow_pump = shadow_desired["pump"].as<int>() == 1;
+  if (shadow_state.containsKey("pump")){
+    recieved_shadow_pump = shadow_state["pump"].as<int>() == 1;
   }
 
   if ( shadow_auto != recieved_shadow_auto){
     Serial.println("Recieved new desired shadow auto state: " + recieved_shadow_auto? "True" : "False");
     shadow_auto = recieved_shadow_auto;
+    updateShadowReportedState();
   }
 
   if (shadow_pump != recieved_shadow_pump){
@@ -124,15 +126,18 @@ void handleShadowUpdateDelta(JsonObject &shadow_state){
     shadow_pump = recieved_shadow_pump;
   }
 
+  Serial.println("***************");
+
   return;
 }
 
 void handleShadowAccepted(JsonObject &shadow_state){
   JsonObject shadow_desired = shadow_state["desired"];
   JsonObject shadow_reported = shadow_state["reported"];
-
+  
   if (shadow_desired.containsKey("auto") && shadow_desired["auto"] != shadow_reported["auto"]) {
     shadow_auto = shadow_desired["auto"].as<int>() == 1;
+    updateShadowReportedState();
   }
 
   if (shadow_desired.containsKey("pump") && shadow_desired["pump"] != shadow_reported["pump"]) {
@@ -215,7 +220,7 @@ void connectToMQTT() {
 
   Serial.println("ESP32  - AWS IoT Connected!");
   keepBlinking = false;
-  endBlinking(assessmentColor());
+  endBlinking(ColorSettings::WHITE);
   checkMQTTShadow = true; 
 }
 
@@ -232,7 +237,7 @@ bool checkMqttStatus() {
 }
 
 void retrieveShadowOnMqttConnection(){
-  if (checkWifiStatus && checkMQTTShadow) {
+  if (checkWifiStatus() && checkMQTTShadow) {
     getAndCheckShadowState();
     checkMQTTShadow = false;
   } 

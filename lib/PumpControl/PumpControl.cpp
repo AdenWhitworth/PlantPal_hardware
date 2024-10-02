@@ -40,6 +40,8 @@ void correctSoilCapacitive() {
     Serial.println("Pump Attempt " + String(attempt) + ": Soil Temp: " + String(currentSoilResponse.soilTemperature));
     Serial.println("Soil Cap: " + String(currentSoilResponse.soilCapacitive));
 
+    mqttLoop();
+    
     vTaskDelay(pdMS_TO_TICKS(2000));
   }
 

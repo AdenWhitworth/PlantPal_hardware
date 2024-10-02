@@ -5,7 +5,7 @@
 
 unsigned long previousMillis = 0;
 const unsigned long logInterval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds 
-const unsigned long autoInterval = 60 * 1000; // 1 minute in milliseconds
+const unsigned long autoInterval = 60 * 60 * 1000; // 1 hour in milliseconds
 
 void logAssessment(const String& context, const String& message) {
   Serial.println();
