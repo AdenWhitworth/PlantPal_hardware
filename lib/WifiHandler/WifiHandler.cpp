@@ -1,56 +1,58 @@
 #include <Arduino.h>
-#include "WifiHandler.h"
 #include <WiFi.h>
 #include "LedControl.h"
-#include "WifiHandlerConstants.h"
 #include "MqttHandler.h"
+#include "WifiHandler.h"
 #include "LedControlConstants.h"
+#include "WifiHandlerConstants.h"
 
 String ssid = "";
 String password = "";
 
-void checkDisconnections() {
+bool handleDisconnections() {
     if (checkMqttStatus()) {
         disconnectFromMQTT();
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("Already connected to WiFi, disconnecting...");
+        Serial.println(WifiStates::DISCONNECTION_ATTEMPT_MESSAGE);
         WiFi.disconnect(); 
         vTaskDelay(pdMS_TO_TICKS(1000));
-        Serial.println("Disconnected from previous WiFi.");
+        Serial.println(WifiStates::DISCONNECTION_SUCCESS_MESSAGE);
+        return true;
     }
+
+    return false;
+}
+
+void logWiFiStatus() {
+    Serial.println();
+    Serial.print("WiFi connected to: ");
+    Serial.println(ssid);
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
 }
 
 void connectToWiFi() {
     if (ssid.isEmpty() && password.isEmpty()) {
-        Serial.println("Wifi ssid and password required to connect");
+        Serial.println(WifiStates::CONNECTION_MISSING_INPUT);
         endBlinking(ColorSettings::ORANGE);
         return;
     }
 
-    Serial.println("Attempting to connect to WiFi...");
+    Serial.println(WifiStates::CONNECTION_ATTEMPT_MESSAGE);
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid.c_str(), password.c_str());
 
     if (WiFi.waitForConnectResult() == WL_CONNECTED) {
-        Serial.println("");  Serial.print("WiFi connected to: "); Serial.println(ssid);  Serial.println("IP address: ");  Serial.println(WiFi.localIP());
+        logWiFiStatus();
     }
-    
-    if(WiFi.status() != WL_CONNECTED){
-        WiFi.disconnect();
-        Serial.println("Wifi disconnected");
-        Serial.println("Try again to connect to Wifi");
-        if (WiFi.waitForConnectResult() == WL_CONNECTED) {
-            Serial.println("");  Serial.print("WiFi connected to: "); Serial.println(ssid);  Serial.println("IP address: ");  Serial.println(WiFi.localIP());
-        }
-    } 
 
     if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("Connected to WiFi");
+        Serial.println(WifiStates::CONNECTION_SUCCESS_MESSAGE);
         connectToMQTT();
     } else {
-        Serial.print("WiFi connection failed with error code: ");
+        Serial.print(WifiStates::CONNECTION_FAILED_MESSAGE);
         Serial.println(WiFi.status());
 
         endBlinking(ColorSettings::ORANGE);

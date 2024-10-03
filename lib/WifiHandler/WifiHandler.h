@@ -5,6 +5,6 @@ extern String ssid;
 extern String password; 
 void connectToWiFi();
 bool checkWifiStatus();
-void checkDisconnections();
+bool handleDisconnections();
 
 #endif

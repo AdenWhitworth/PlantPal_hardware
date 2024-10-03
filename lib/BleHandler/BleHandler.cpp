@@ -77,7 +77,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
     }
 
     storeWifiCredentials(ssid, password);
-    checkDisconnections();
+    handleDisconnections();
     pCharacteristic->setValue(bleResponseMessage.c_str());
     pCharacteristic->notify();
 
