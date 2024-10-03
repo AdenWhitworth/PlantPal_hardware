@@ -6,14 +6,25 @@
  * including the maximum number of connection retries and various 
  * status messages for WiFi connection attempts and results.
  */
-
 #ifndef WIFI_HANDLER_CONSTANTS_H
 #define WIFI_HANDLER_CONSTANTS_H
 
+/**
+ * @brief Namespace for WiFi connection settings.
+ * 
+ * This namespace contains constants related to WiFi connection 
+ * parameters, such as maximum retries for connection attempts.
+ */
 namespace WifiSettings {
     const int MAX_RETRIES = 30; // Maximum number of retry attempts for connecting to WiFi.
 }
 
+/**
+ * @brief Namespace for WiFi status messages.
+ * 
+ * This namespace contains constant messages related to the 
+ * status of WiFi connections and disconnections.
+ */
 namespace WifiStates {
     const char* CONNECTION_MISSING_INPUT = "Wifi ssid and password required to connect"; // Message indicating that SSID and password are required for connection.
     const char* CONNECTION_ATTEMPT_MESSAGE = "Attempting to connect to WiFi..."; // Message indicating an attempt to connect to WiFi is being made.

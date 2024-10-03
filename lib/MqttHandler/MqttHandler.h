@@ -1,7 +1,7 @@
 #include "SoilSensor.h"
 
 #ifndef MQTT_HANDLER_H
-#define MQTT_HANDLER_H"
+#define MQTT_HANDLER_H
 
 // External variables to manage the state of the system
 extern bool shadow_auto;         // Indicates whether the auto state is enabled.

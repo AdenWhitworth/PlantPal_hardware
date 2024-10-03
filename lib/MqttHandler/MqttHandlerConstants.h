@@ -1,3 +1,12 @@
+/**
+ * @file MqttHandlerConstants.h
+ * @brief Constants for MQTT connection settings.
+ * 
+ * This header file defines constants that are used for 
+ * managing MQTT connections in the ESP32 project. 
+ * It includes settings for maximum connection retries 
+ * and the delay between connection attempts.
+ */
 #ifndef MQTT_HANDLER_CONSTANTS_H
 #define MQTT_HANDLER_CONSTANTS_H
 
