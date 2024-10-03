@@ -15,5 +15,7 @@ void connectToMQTT();
 void mqttLoop();
 bool checkMqttStatus();
 void retrieveShadowOnMqttConnection();
+void disconnectFromMQTT();
+void handleStrayMqttDisconnect();
 
 #endif

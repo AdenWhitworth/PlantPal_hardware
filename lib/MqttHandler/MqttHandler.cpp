@@ -17,21 +17,45 @@ bool shadow_auto;
 bool shadow_pump;
 bool checkMQTTShadow = false; 
 bool checkInterupt = false;
+bool wasMqttDisconnected = false;
 
-void logError(const String& context, const String& errorMessage) {
-  Serial.print("Error in ");
-  Serial.print(context);
-  Serial.print(": ");
+void logError(const String& topic, const String& errorMessage) {
+  Serial.println();
+  Serial.println("*****************************");
+  Serial.print("error:");
+  Serial.print("- topic:" + topic);
+  Serial.print("- message: ");
   Serial.println(errorMessage);
+  Serial.println("*****************************");
+}
+
+void logSuccessSent(const String& topic, const String& payload){
+  Serial.println();
+  Serial.println("*****************************");
+  Serial.println("sent:");
+  Serial.println("- topic: " + topic);
+  Serial.print("- payload:");
+  Serial.println(payload);
+  Serial.println("*****************************");
+}
+
+void logSuccessRecieve(const String& topic, const String& payload){
+  Serial.println();
+  Serial.println("*****************************");
+  Serial.println("received:");
+  Serial.println("- topic: " + topic);
+  Serial.println("- payload:");
+  Serial.println(payload);
+  Serial.println("*****************************");
 }
 
 void getAndCheckShadowState() {
   Serial.println("Retrieving initial shadow state...");
   
   if (client.publish(AWS_IOT_SHADOW_GET, "{}")) {
-    Serial.println("Shadow get request published");
+    logSuccessSent(AWS_IOT_SHADOW_GET,"Shadow get request published");
   } else {
-    logError("getAndCheckShadowState", "Failed to publish shadow get request");
+    logError(AWS_IOT_SHADOW_GET, "Failed to publish shadow get request");
   }
 }
 
@@ -39,19 +63,20 @@ void updateShadowReportedState() {
   StaticJsonDocument<256> doc;
   JsonObject state = doc.createNestedObject("state");
   JsonObject reported = state.createNestedObject("reported");
+  
   reported["auto"] = shadow_auto;
-  reported["pump"] = shadow_pump;
+
+  if (shadow_pump){
+    reported["pump"] = shadow_pump;
+    shadow_pump = false;
+  }
 
   char jsonBuffer[512];
   serializeJson(doc, jsonBuffer);
 
   client.publish(AWS_IOT_SHADOW_UPDATE, jsonBuffer);
 
-  Serial.println("sent:");
-  Serial.print("- topic: ");
-  Serial.println(AWS_IOT_SHADOW_UPDATE);
-  Serial.print("- payload:");
-  Serial.println(jsonBuffer);
+  logSuccessSent(AWS_IOT_SHADOW_UPDATE,jsonBuffer);
 }
 
 void logSoilSensor(soilSensorResponse currentSoilResponse, bool didWater) {
@@ -66,77 +91,99 @@ void logSoilSensor(soilSensorResponse currentSoilResponse, bool didWater) {
 
   client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
 
-  Serial.println("sent:");
-  Serial.print("- topic: ");
-  Serial.println(AWS_IOT_PUBLISH_TOPIC);
-  Serial.print("- payload:");
-  Serial.println(jsonBuffer);
+  logSuccessSent(AWS_IOT_PUBLISH_TOPIC,jsonBuffer);
+
+  if(!keepBlinking){
+    fadeToColor(assessmentColor());
+  }
+}
+
+void handleShadowUpdateDelta(JsonObject &shadow_state){
+  
+  Serial.println("***************");
+  Serial.println("Shadow Update Delta");
+  
+  
+  bool received_shadow_auto;
+  bool received_shadow_pump;
+
+  if (shadow_state.containsKey("auto")){
+    received_shadow_auto = shadow_state["auto"].as<int>() == 1;
+  }
+
+  if (shadow_state.containsKey("pump")){
+    received_shadow_pump = shadow_state["pump"].as<int>() == 1;
+  }
+
+  if ( shadow_auto != received_shadow_auto){
+    Serial.println("Recieved new desired shadow auto state: " + received_shadow_auto? "True" : "False");
+    shadow_auto = received_shadow_auto;
+    updateShadowReportedState();
+  }
+
+  if (shadow_pump != received_shadow_pump){
+    Serial.println("Recieved new desired shadow pump state: " + received_shadow_pump? "True" : "False");
+    shadow_pump = received_shadow_pump;
+  }
+
+  Serial.println("***************");
+
+  return;
+}
+
+void handleShadowAccepted(JsonObject &shadow_state){
+  JsonObject shadow_desired = shadow_state["desired"];
+  JsonObject shadow_reported = shadow_state["reported"];
+  
+  if (shadow_desired.containsKey("auto") && shadow_desired["auto"] != shadow_reported["auto"]) {
+    shadow_auto = shadow_desired["auto"].as<int>() == 1;
+    updateShadowReportedState();
+  }
+
+  if (shadow_desired.containsKey("pump") && shadow_desired["pump"] != shadow_reported["pump"]) {
+    shadow_pump = shadow_desired["pump"].as<int>() == 1;
+  }
+
+  soilSensorResponse currentSoilResponse;
+  currentSoilResponse = readSoilSensor(currentSoilResponse);
+  logSoilSensor(currentSoilResponse,false);
+
+  return;
 }
 
 void messageHandler(String &topic, String &payload) {
-  Serial.println("received:");
-  Serial.println("- topic: " + topic);
-  Serial.println("- payload:");
-  Serial.println(payload);
-
+  logSuccessRecieve(topic, payload);
   StaticJsonDocument<1024> doc;
   DeserializationError error = deserializeJson(doc, payload);
 
   if (error) {
-    logError("Message Handler", "Failed to deserialize JSON: " + String(error.c_str()));
-    return;
-  }
-
-  if (topic == AWS_IOT_SHADOW_UPDATE_DELTA){
-    JsonObject shadow_state = doc["state"];
-
-    if (shadow_state.containsKey("auto")){
-      shadow_auto = shadow_state["auto"];
-    }
-
-    if (shadow_state.containsKey("pump")){
-      shadow_pump = shadow_state["pump"];
-    }
-
-    Serial.println("shadow_auto: " + String(shadow_auto));
-    Serial.println("shadow_pump: " + String(shadow_pump));
-    updateShadowReportedState();
-    return;
-  }
-
-  if (topic == AWS_IOT_SHADOW_ACCEPTED){
-    JsonObject shadow_state = doc["state"];
-    JsonObject shadow_desired = shadow_state["desired"];
-    JsonObject shadow_reported = shadow_state["reported"];
-  
-    if (shadow_desired.containsKey("auto") && shadow_desired["auto"] != shadow_reported["auto"]) {
-      shadow_auto = shadow_desired["auto"];
-    }
-
-    if (shadow_desired.containsKey("pump") && shadow_desired["pump"] != shadow_reported["pump"]) {
-      shadow_pump = shadow_desired["pump"];
-    }
-
-    updateShadowReportedState();
+    logError(topic, "Failed to deserialize JSON: " + String(error.c_str()));
     return;
   }
 
   if (topic == AWS_IOT_SHADOW_REJECTED){
-    Serial.println("Failed to get shadow document");
+    logError(topic, "Failed to get shadow document");
     return;
   }
 
-  if (topic == AWS_IOT_SUBSCRIBE_TOPIC){
-    if (doc["error"]) {
-      Serial.println("Failed to log sensor data");
-    } else {
-      Serial.println("Success logging sensor data");
-    }
+  if (topic == AWS_IOT_SUBSCRIBE_TOPIC && doc["error"]){
+    logError(topic, "Failed to log sensor data");
+    return;
+  }
+
+  JsonObject shadow_state = doc["state"];
+
+  if (topic == AWS_IOT_SHADOW_UPDATE_DELTA){
+    handleShadowUpdateDelta(shadow_state);
+  }
+
+  if (topic == AWS_IOT_SHADOW_ACCEPTED){
+    handleShadowAccepted(shadow_state);
   }
 }
 
 void connectToMQTT() {
-
+  wasMqttDisconnected = false;
   net.setCACert(AWS_CERT_CA);
   net.setCertificate(AWS_CERT_CRT);
   net.setPrivateKey(AWS_CERT_PRIVATE);
@@ -149,8 +196,8 @@ void connectToMQTT() {
 
   int attempts = 0;
   while (!client.connect(THINGNAME) && attempts < MqttSettings::MAX_RETRIES) {
-      Serial.print(".");
-      delay(1000); // Wait before retrying
+      Serial.println("Attempt " + String(attempts) + " to connect to MQTT broker");
+      vTaskDelay(pdMS_TO_TICKS(MqttSettings::RETRY_DELAY));
       attempts++;
   }
 
@@ -162,23 +209,30 @@ void connectToMQTT() {
   if (!checkMqttStatus()) {
     Serial.println("ESP32 - AWS IoT Timeout!");
     keepBlinking = false;
-    fadeToColor(ColorSettings::RED, 100); 
+    fadeToColor(ColorSettings::ORANGE); 
     return;
   }
 
-  client.subscribe(AWS_IOT_SHADOW_ACCEPTED);
-  client.subscribe(AWS_IOT_SHADOW_REJECTED);
-  client.subscribe(AWS_IOT_SHADOW_UPDATE_DELTA);
-  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
+  if (!client.subscribe(AWS_IOT_SHADOW_ACCEPTED) ||
+    !client.subscribe(AWS_IOT_SHADOW_REJECTED) ||
+    !client.subscribe(AWS_IOT_SHADOW_UPDATE_DELTA) ||
+    !client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC)) {
+    logError("MQTT Subscription", "Failed to subscribe to one or more topics");
+    return;
+  }
 
   Serial.println("ESP32  - AWS IoT Connected!");
   keepBlinking = false;
-  fadeToColor(ColorSettings::GREEN, 100);
+  endBlinking(ColorSettings::WHITE);
   checkMQTTShadow = true; 
 }
 
 void mqttLoop() {
-  client.loop();
+  if (checkMqttStatus()){
+    client.loop();
+  
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
 }
 
 bool checkMqttStatus() {
@@ -186,8 +240,36 @@ bool checkMqttStatus() {
 }
 
 void retrieveShadowOnMqttConnection(){
-  if (checkWifiStatus && checkMQTTShadow) {
+  if (checkWifiStatus() && checkMQTTShadow) {
     getAndCheckShadowState();
     checkMQTTShadow = false;
   } 
 }
+
+void disconnectFromMQTT() {
+  Serial.println("Disconnecting from MQTT broker...");
+  client.disconnect();
+  vTaskDelay(pdMS_TO_TICKS(1000));
+  Serial.println("Disconnected from MQTT broker.");
+}
+
+void handleStrayMqttDisconnect() {
+  if (!checkMqttStatus() && !wasMqttDisconnected){
+    Serial.println("MQTT Disconnected");
+    wasMqttDisconnected = true;
+
+    if (currentColor == ColorSettings::ORANGE){
+      return;
+    }
+
+    if (keepBlinking){
+      switchBlinkingColor(ColorSettings::ORANGE);
+      return;
+    }
+
+    fadeToColor(ColorSettings::ORANGE); 
+
+  }
+}
+
+

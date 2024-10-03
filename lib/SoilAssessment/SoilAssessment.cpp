@@ -1,86 +1,64 @@
+#include <Arduino.h>
 #include "MqttHandler.h"
 #include "SoilSensor.h"
 #include "PumpControl.h"
-#include <Arduino.h>
+#include "SoilAssessmentConstants.h"
 
 unsigned long previousMillis = 0;
-const unsigned long logInterval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
-const unsigned long autoInterval = 60 * 1000; // 1 minute in milliseconds
+
+void logAssessment(const String& context, const String& message) {
+    Serial.println();
+    Serial.println("*****************************");
+    Serial.print("Assessment: ");
+    Serial.print(context);
+    Serial.print(" - Message: ");
+    Serial.println(message);
+    Serial.println("*****************************");
+}
 
 void scheduledSoilAssessment(unsigned long currentMillis) {
-    
-    if (!checkMqttStatus()){
-        return;
-    }
-    
-    if (currentMillis - previousMillis >= logInterval){
-        previousMillis = currentMillis;
+    if (checkMqttStatus()){
+        if (currentMillis - previousMillis >= AssessmentSettings::LOG_INTERVAL){
+            previousMillis = currentMillis;
 
-        soilSensorResponse currentSoilResponse;
-        currentSoilResponse = readSoilSensor(currentSoilResponse);
-
-        logSoilSensor(currentSoilResponse,false);
-
-        Serial.println("Soil assessment published");
+            soilSensorResponse currentSoilResponse;
+            currentSoilResponse = readSoilSensor(currentSoilResponse);
+            logSoilSensor(currentSoilResponse,false);
+            logAssessment("scheduledSoilAssessment", "Scheduled soil assessment collected.");
+        }
     }
 }
 
 void scheduledAutoWaterAssessment(unsigned long currentMillis){ 
-    if (!checkMqttStatus()){
-        return;
-    }
-
-    if (!shadow_auto){
-        Serial.println("Auto watering is not selected.");
-        return;
-    }
+    if (checkMqttStatus() && shadow_auto){
     
-    if (currentMillis - previousMillis >= autoInterval){
-        previousMillis = currentMillis;
+        if (currentMillis - previousMillis >= AssessmentSettings::AUTO_INTERVAL){
+            previousMillis = currentMillis;
 
-        bool soilNeedsWater = assessSoil();
+            bool soilNeedsWater = assessSoil();
 
-        Serial.println(soilNeedsWater ? "Soil needs water" : "Soil moisture is sufficient");
-        
-        if (soilNeedsWater){
-            correctSoilCapacitive();
-
-            soilSensorResponse currentSoilResponse;
-            currentSoilResponse = readSoilSensor(currentSoilResponse);
-
-            logSoilSensor(currentSoilResponse,true);
-
-            Serial.println("Soil auto watering published");
+            logAssessment("scheduledAutoWaterAssessment", "Scheduled auto assessment returns: " + soilNeedsWater ? "Soil needs water" : "Soil moisture is sufficient");
+            
+            if (soilNeedsWater){
+                correctSoilCapacitive();
+            }
         }
     }
 }
 
 void manualWaterAssessment(){
-    if (!checkMqttStatus()){
-        return;
+    if (checkMqttStatus() && !shadow_auto && shadow_pump){
+
+        if (shadow_auto) {
+            logAssessment("manualWaterAssessment", "Cannot manually pump water while auto is set");
+            return;
+        }
+        
+        logAssessment("manualWaterAssessment", "User requests to pump the water.");
+
+        correctSoilCapacitive();
+        
+        updateShadowReportedState();
     }
-
-    if (!shadow_pump){
-        Serial.println("Manual watering is not selected.");
-        return;
-    }
-
-    if (shadow_auto){
-        Serial.println("Cannot manual water when auto water is set");
-        return;
-    }
-    
-    Serial.println("User requests to pump water");
-
-    correctSoilCapacitive();
-      
-    soilSensorResponse currentSoilResponse;
-    currentSoilResponse = readSoilSensor(currentSoilResponse);
-
-    logSoilSensor(currentSoilResponse,true);
-    shadow_pump = false;
-    updateShadowReportedState();
-    
-    Serial.println("Soil manual watering published");
 }
 
