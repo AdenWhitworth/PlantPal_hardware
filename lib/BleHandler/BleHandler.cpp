@@ -1,3 +1,11 @@
+/**
+ * @file BleHandler.cpp
+ * @brief Handles Bluetooth Low Energy (BLE) functionalities for the ESP32.
+ * 
+ * This file manages BLE server operations, connection handling, and 
+ * parsing of Wi-Fi credentials received via BLE. It initializes 
+ * BLE services, characteristics, and handles responses to connected devices.
+ */
 #include <Arduino.h>
 #include "BLEHandler.h"
 #include <BLEDevice.h>
@@ -16,18 +24,41 @@ bool deviceConnected = false;
 String bleResponseMessage = "";
 bool recievedNewCredentials = false;
 
+/**
+ * @class MyServerCallbacks
+ * @brief Callback class for BLE server events.
+ * 
+ * This class handles BLE server connection and disconnection events.
+ */
 class MyServerCallbacks : public BLEServerCallbacks {
+  /**
+   * @brief Called when a device connects to the BLE server.
+   * 
+   * @param pServer Pointer to the BLE server instance.
+   */
   void onConnect(BLEServer* pServer) {
     deviceConnected = true;
     Serial.println("Device connected");
   }
 
+  /**
+   * @brief Called when a device disconnects from the BLE server.
+   * 
+   * @param pServer Pointer to the BLE server instance.
+   */
   void onDisconnect(BLEServer* pServer) {
     deviceConnected = false;
     Serial.println("Device disconnected");
   }
 };
 
+/**
+ * @brief Turns off BLE and releases associated resources.
+ * 
+ * This function stops BLE advertising, disconnects the connected 
+ * device (if any), deinitializes BLE, and deletes the BLESecurity 
+ * instance if it was created.
+ */
 void turnOffBle() {
   Serial.println("Stopping BLE...");
 
@@ -51,6 +82,14 @@ void turnOffBle() {
   Serial.println("BLE stopped and memory released.");
 }
 
+/**
+ * @brief Parses the received Wi-Fi credentials from a string.
+ * 
+ * @param valueString The string containing the Wi-Fi credentials.
+ * @param ssid Reference to a String to store the SSID.
+ * @param password Reference to a String to store the password.
+ * @return true if parsing was successful, false otherwise.
+ */
 bool parseWifiCredentials(const String& valueString, String& ssid, String& password) {
   int ssidKeyPosition = valueString.indexOf("SSID:");
   int passKeyPosition = valueString.indexOf("PASS:");
@@ -72,6 +111,13 @@ bool parseWifiCredentials(const String& valueString, String& ssid, String& passw
   return false;
 }
 
+/**
+ * @class MyCallbacks
+ * @brief Callback class for BLE characteristic events.
+ * 
+ * This class handles write events to the BLE characteristic,
+ * including parsing Wi-Fi credentials and storing them.
+ */
 class MyCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
     std::string value = pCharacteristic->getValue();
@@ -97,6 +143,12 @@ class MyCallbacks: public BLECharacteristicCallbacks {
   }
 };
 
+/**
+ * @brief Handles the new Wi-Fi credentials received via BLE.
+ * 
+ * If new credentials are received, this function will turn off BLE, 
+ * wait for a short period, and then attempt to connect to Wi-Fi.
+ */
 void handleNewCredentials() {
   if (recievedNewCredentials){
     turnOffBle();
@@ -108,6 +160,12 @@ void handleNewCredentials() {
   }
 }
 
+/**
+ * @brief Initializes BLE functionality.
+ * 
+ * This function sets up the BLE device, initializes security features,
+ * creates the server and characteristic, and starts advertising.
+ */
 void beginBLE() {
 
   Serial.println("Begin BLE for: ");

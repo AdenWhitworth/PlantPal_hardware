@@ -19,6 +19,12 @@ bool checkMQTTShadow = false;
 bool checkInterupt = false;
 bool wasMqttDisconnected = false;
 
+/**
+ * @brief Logs an error message to the serial output.
+ * 
+ * @param topic The MQTT topic associated with the error.
+ * @param errorMessage The error message to log.
+ */
 void logError(const String& topic, const String& errorMessage) {
   Serial.println();
   Serial.println("*****************************");
@@ -29,6 +35,12 @@ void logError(const String& topic, const String& errorMessage) {
   Serial.println("*****************************");
 }
 
+/**
+ * @brief Logs a successful sent message to the serial output.
+ * 
+ * @param topic The MQTT topic to which the message was sent.
+ * @param payload The payload of the message sent.
+ */
 void logSuccessSent(const String& topic, const String& payload){
   Serial.println();
   Serial.println("*****************************");
@@ -39,6 +51,12 @@ void logSuccessSent(const String& topic, const String& payload){
   Serial.println("*****************************");
 }
 
+/**
+ * @brief Logs a successful received message to the serial output.
+ * 
+ * @param topic The MQTT topic from which the message was received.
+ * @param payload The payload of the received message.
+ */
 void logSuccessRecieve(const String& topic, const String& payload){
   Serial.println();
   Serial.println("*****************************");
@@ -49,6 +67,11 @@ void logSuccessRecieve(const String& topic, const String& payload){
   Serial.println("*****************************");
 }
 
+/**
+ * @brief Retrieves the initial shadow state from the AWS IoT.
+ * 
+ * Sends a request to get the shadow state and logs the result.
+ */
 void getAndCheckShadowState() {
   Serial.println("Retrieving initial shadow state...");
   
@@ -59,6 +82,11 @@ void getAndCheckShadowState() {
   }
 }
 
+/**
+ * @brief Updates the reported shadow state on AWS IoT.
+ * 
+ * Creates a JSON document with the current shadow state and publishes it.
+ */
 void updateShadowReportedState() {
   StaticJsonDocument<256> doc;
   JsonObject state = doc.createNestedObject("state");
@@ -79,6 +107,12 @@ void updateShadowReportedState() {
   logSuccessSent(AWS_IOT_SHADOW_UPDATE,jsonBuffer);
 }
 
+/**
+ * @brief Logs the soil sensor data to AWS IoT.
+ * 
+ * @param currentSoilResponse The current response from the soil sensor.
+ * @param didWater Indicates whether watering occurred.
+ */
 void logSoilSensor(soilSensorResponse currentSoilResponse, bool didWater) {
   StaticJsonDocument<256> doc;
   doc["cat_num"] = catNum;
@@ -98,6 +132,11 @@ void logSoilSensor(soilSensorResponse currentSoilResponse, bool didWater) {
   }
 }
 
+/**
+ * @brief Handles the shadow update delta from AWS IoT.
+ * 
+ * @param shadow_state The JSON object containing the shadow state.
+ */
 void handleShadowUpdateDelta(JsonObject &shadow_state){
   
   Serial.println("***************");
@@ -131,6 +170,11 @@ void handleShadowUpdateDelta(JsonObject &shadow_state){
   return;
 }
 
+/**
+ * @brief Handles the accepted shadow update from AWS IoT.
+ * 
+ * @param shadow_state The JSON object containing the shadow state.
+ */
 void handleShadowAccepted(JsonObject &shadow_state){
   JsonObject shadow_desired = shadow_state["desired"];
   JsonObject shadow_reported = shadow_state["reported"];
@@ -151,6 +195,12 @@ void handleShadowAccepted(JsonObject &shadow_state){
   return;
 }
 
+/**
+ * @brief Handles incoming MQTT messages.
+ * 
+ * @param topic The MQTT topic of the message.
+ * @param payload The payload of the message.
+ */
 void messageHandler(String &topic, String &payload) {
   logSuccessRecieve(topic, payload);
   StaticJsonDocument<1024> doc;
@@ -182,6 +232,12 @@ void messageHandler(String &topic, String &payload) {
   }
 }
 
+/**
+ * @brief Connects to the MQTT broker.
+ * 
+ * Sets up the secure client and attempts to connect to the MQTT broker.
+ * Subscribes to necessary topics after a successful connection.
+ */
 void connectToMQTT() {
   wasMqttDisconnected = false;
   net.setCACert(AWS_CERT_CA);
@@ -227,6 +283,13 @@ void connectToMQTT() {
   checkMQTTShadow = true; 
 }
 
+/**
+ * @brief Handles the MQTT loop for maintaining the connection.
+ * 
+ * Calls the MQTT client's loop function if connected, allowing 
+ * for message handling and maintaining the connection. 
+ * Delays execution for a short period to avoid busy-waiting.
+ */
 void mqttLoop() {
   if (checkMqttStatus()){
     client.loop();
@@ -235,10 +298,21 @@ void mqttLoop() {
   }
 }
 
+/**
+ * @brief Checks the connection status of the MQTT client.
+ * 
+ * @return True if the client is connected; otherwise, false.
+ */
 bool checkMqttStatus() {
   return client.connected();
 }
 
+/**
+ * @brief Retrieves the shadow state upon a successful MQTT connection.
+ * 
+ * Checks if the Wi-Fi is connected and if the shadow state retrieval 
+ * flag is set, then calls the function to get and check the shadow state.
+ */
 void retrieveShadowOnMqttConnection(){
   if (checkWifiStatus() && checkMQTTShadow) {
     getAndCheckShadowState();
@@ -246,6 +320,12 @@ void retrieveShadowOnMqttConnection(){
   } 
 }
 
+/**
+ * @brief Disconnects from the MQTT broker.
+ * 
+ * Sends a disconnect command to the MQTT client and delays 
+ * for a brief period before confirming disconnection.
+ */
 void disconnectFromMQTT() {
   Serial.println("Disconnecting from MQTT broker...");
   client.disconnect();
@@ -253,6 +333,13 @@ void disconnectFromMQTT() {
   Serial.println("Disconnected from MQTT broker.");
 }
 
+/**
+ * @brief Handles stray MQTT disconnections.
+ * 
+ * Checks if the MQTT client is disconnected and handles the situation 
+ * accordingly. If disconnected, logs the event and updates the 
+ * blinking color if applicable.
+ */
 void handleStrayMqttDisconnect() {
   if (!checkMqttStatus() && !wasMqttDisconnected){
     Serial.println("MQTT Disconnected");
