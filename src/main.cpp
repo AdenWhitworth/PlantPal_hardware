@@ -11,17 +11,22 @@
 #include "LedControlConstants.h"
 #include "../../include/PinConfig.h"
 
+const int BOOT_DELAY_SECONDS = 4;
+const int BOOT_DELAY = BOOT_DELAY_SECONDS * 1000;
+const int SETUP_DELAY_SECONDS = 5;
+const int SETUP_DELAY = SETUP_DELAY_SECONDS * 1000;
+
 void setup() {
   Serial.begin(115200);
 
-  vTaskDelay(pdMS_TO_TICKS(4000));
+  vTaskDelay(pdMS_TO_TICKS(BOOT_DELAY));
   
   initRgbLed();
   setupStatusButtonInterrupt();
   beginBlinking(ColorSettings::WHITE);
   checkFirmware();
   loadWifiCredentials(ssid, password);
-  vTaskDelay(pdMS_TO_TICKS(5000));
+  vTaskDelay(pdMS_TO_TICKS(SETUP_DELAY));
   connectToWiFi();
   attachStatusButtonInterrupt();
 }
