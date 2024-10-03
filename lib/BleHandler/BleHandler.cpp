@@ -7,8 +7,10 @@
 #include "WifiHandler.h"
 #include "Storage.h"
 #include "../../src/utilities.h"
+#include "BleHandlerConstants.h"
 
 BLEServer* pServer = NULL;
+BLESecurity *pSecurity = nullptr; 
 BLECharacteristic* pCharacteristic = NULL;
 bool deviceConnected = false;
 String bleResponseMessage = "";
@@ -31,17 +33,43 @@ void turnOffBle() {
 
   BLEDevice::stopAdvertising();
 
-  if (deviceConnected) {
+  if (deviceConnected && pServer != nullptr) {
     pServer->disconnect(0);
     deviceConnected = false;
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    vTaskDelay(pdMS_TO_TICKS(BleSettings::BLE_DISCONNECT_DELAY));
   }
   
   BLEDevice::deinit();
   btStop();
   esp_bt_controller_disable();
+
+  if (pSecurity != nullptr) {
+    delete pSecurity;
+    pSecurity = nullptr;
+  }
   
   Serial.println("BLE stopped and memory released.");
+}
+
+bool parseWifiCredentials(const String& valueString, String& ssid, String& password) {
+  int ssidKeyPosition = valueString.indexOf("SSID:");
+  int passKeyPosition = valueString.indexOf("PASS:");
+
+  if (ssidKeyPosition != -1 && passKeyPosition != -1) {
+    int ssidStart = ssidKeyPosition + 5;
+    int ssidEnd = valueString.indexOf(';', ssidStart);
+    
+    int passStart = passKeyPosition + 5;
+    int passEnd = valueString.length();
+
+    if (ssidEnd != -1 && passStart > ssidEnd) { 
+      ssid = valueString.substring(ssidStart, ssidEnd);
+      password = valueString.substring(passStart, passEnd);
+      return true;
+    }
+  }
+
+  return false;
 }
 
 class MyCallbacks: public BLECharacteristicCallbacks {
@@ -49,29 +77,11 @@ class MyCallbacks: public BLECharacteristicCallbacks {
     std::string value = pCharacteristic->getValue();
 
     if (value.length() > 0) {
-      
       String valueString = value.c_str();
-
-      int ssidKeyPosition = valueString.indexOf("SSID:");
-      int passKeyPosition = valueString.indexOf("PASS:");
-
-      if (ssidKeyPosition != -1 && passKeyPosition != -1) {
-        int ssidStart = ssidKeyPosition + 5;
-        int ssidEnd = valueString.indexOf(';', ssidStart);
-        
-        int passStart = passKeyPosition + 5;
-        int passEnd = valueString.length();
-
-        if (ssidEnd != -1 && passStart > ssidEnd) { 
-          ssid = valueString.substring(ssidStart, ssidEnd);
-          password = valueString.substring(passStart, passEnd);
-          bleResponseMessage = "Successfully received wifi credentials";
-        } else {
-          Serial.println("Error: Could not parse SSID and Password correctly.");
-          bleResponseMessage = "Failed to receive wifi credentials";
-        }
+      if (parseWifiCredentials(valueString, ssid, password)) {
+        bleResponseMessage = "Successfully received wifi credentials";
       } else {
-        Serial.println("Error: SSID or PASS keys not found in the string.");
+        Serial.println("Error: Could not parse SSID and Password correctly.");
         bleResponseMessage = "Failed to receive wifi credentials";
       }
     }
@@ -81,7 +91,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
     pCharacteristic->setValue(bleResponseMessage.c_str());
     pCharacteristic->notify();
 
-    vTaskDelay(pdMS_TO_TICKS(4000));
+    vTaskDelay(pdMS_TO_TICKS(BleSettings::BLE_RESPONSE_DELAY));
 
     recievedNewCredentials = true;
   }
@@ -91,7 +101,7 @@ void handleNewCredentials() {
   if (recievedNewCredentials){
     turnOffBle();
 
-    vTaskDelay(pdMS_TO_TICKS(4000));
+    vTaskDelay(pdMS_TO_TICKS(BleSettings::BLE_RESPONSE_DELAY));
 
     connectToWiFi();
     recievedNewCredentials = false;
@@ -105,8 +115,10 @@ void beginBLE() {
 
   BLEDevice::init(catNum);
   
-  BLESecurity *pSecurity = new BLESecurity();
+  pSecurity = new BLESecurity();
   pSecurity->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_ONLY);
+  pSecurity->setCapability(ESP_IO_CAP_OUT);
+  pSecurity->setInitEncryptionKey(ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK);
 
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
