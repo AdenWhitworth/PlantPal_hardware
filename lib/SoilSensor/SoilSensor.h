@@ -6,6 +6,7 @@
 struct soilSensorResponse {
     float soilTemperature;
     uint16_t soilCapacitive;
+    bool isValid;
 };
 
 bool initSoilSensor();
