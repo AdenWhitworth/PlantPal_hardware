@@ -104,26 +104,26 @@ void handleShadowUpdateDelta(JsonObject &shadow_state){
   Serial.println("Shadow Update Delta");
   
   
-  bool recieved_shadow_auto;
-  bool recieved_shadow_pump;
+  bool received_shadow_auto;
+  bool received_shadow_pump;
 
   if (shadow_state.containsKey("auto")){
-    recieved_shadow_auto = shadow_state["auto"].as<int>() == 1;
+    received_shadow_auto = shadow_state["auto"].as<int>() == 1;
   }
 
   if (shadow_state.containsKey("pump")){
-    recieved_shadow_pump = shadow_state["pump"].as<int>() == 1;
+    received_shadow_pump = shadow_state["pump"].as<int>() == 1;
   }
 
-  if ( shadow_auto != recieved_shadow_auto){
-    Serial.println("Recieved new desired shadow auto state: " + recieved_shadow_auto? "True" : "False");
-    shadow_auto = recieved_shadow_auto;
+  if ( shadow_auto != received_shadow_auto){
+    Serial.println("Recieved new desired shadow auto state: " + received_shadow_auto? "True" : "False");
+    shadow_auto = received_shadow_auto;
     updateShadowReportedState();
   }
 
-  if (shadow_pump != recieved_shadow_pump){
-    Serial.println("Recieved new desired shadow pump state: " + recieved_shadow_pump? "True" : "False");
-    shadow_pump = recieved_shadow_pump;
+  if (shadow_pump != received_shadow_pump){
+    Serial.println("Recieved new desired shadow pump state: " + received_shadow_pump? "True" : "False");
+    shadow_pump = received_shadow_pump;
   }
 
   Serial.println("***************");
@@ -196,8 +196,8 @@ void connectToMQTT() {
 
   int attempts = 0;
   while (!client.connect(THINGNAME) && attempts < MqttSettings::MAX_RETRIES) {
-      Serial.print(".");
-      vTaskDelay(pdMS_TO_TICKS(1000));
+      Serial.println("Attempt " + String(attempts) + " to connect to MQTT broker");
+      vTaskDelay(pdMS_TO_TICKS(MqttSettings::RETRY_DELAY));
       attempts++;
   }
 
@@ -213,10 +213,13 @@ void connectToMQTT() {
     return;
   }
 
-  client.subscribe(AWS_IOT_SHADOW_ACCEPTED);
-  client.subscribe(AWS_IOT_SHADOW_REJECTED);
-  client.subscribe(AWS_IOT_SHADOW_UPDATE_DELTA);
-  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
+  if (!client.subscribe(AWS_IOT_SHADOW_ACCEPTED) ||
+    !client.subscribe(AWS_IOT_SHADOW_REJECTED) ||
+    !client.subscribe(AWS_IOT_SHADOW_UPDATE_DELTA) ||
+    !client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC)) {
+    logError("MQTT Subscription", "Failed to subscribe to one or more topics");
+    return;
+  }
 
   Serial.println("ESP32  - AWS IoT Connected!");
   keepBlinking = false;
