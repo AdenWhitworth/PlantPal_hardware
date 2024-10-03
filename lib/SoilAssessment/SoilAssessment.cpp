@@ -1,25 +1,24 @@
+#include <Arduino.h>
 #include "MqttHandler.h"
 #include "SoilSensor.h"
 #include "PumpControl.h"
-#include <Arduino.h>
+#include "SoilAssessmentConstants.h"
 
 unsigned long previousMillis = 0;
-const unsigned long logInterval = 4 * 60 * 60 * 1000; // 4 hours in milliseconds 
-const unsigned long autoInterval = 60 * 60 * 1000; // 1 hour in milliseconds
 
 void logAssessment(const String& context, const String& message) {
-  Serial.println();
-  Serial.println("*****************************");
-  Serial.print("Assessment:");
-  Serial.print("-" + context);
-  Serial.print("- message: ");
-  Serial.println(message);
-  Serial.println("*****************************");
+    Serial.println();
+    Serial.println("*****************************");
+    Serial.print("Assessment: ");
+    Serial.print(context);
+    Serial.print(" - Message: ");
+    Serial.println(message);
+    Serial.println("*****************************");
 }
 
 void scheduledSoilAssessment(unsigned long currentMillis) {
     if (checkMqttStatus()){
-        if (currentMillis - previousMillis >= logInterval){
+        if (currentMillis - previousMillis >= AssessmentSettings::LOG_INTERVAL){
             previousMillis = currentMillis;
 
             soilSensorResponse currentSoilResponse;
@@ -33,7 +32,7 @@ void scheduledSoilAssessment(unsigned long currentMillis) {
 void scheduledAutoWaterAssessment(unsigned long currentMillis){ 
     if (checkMqttStatus() && shadow_auto){
     
-        if (currentMillis - previousMillis >= autoInterval){
+        if (currentMillis - previousMillis >= AssessmentSettings::AUTO_INTERVAL){
             previousMillis = currentMillis;
 
             bool soilNeedsWater = assessSoil();
@@ -51,7 +50,6 @@ void manualWaterAssessment(){
     if (checkMqttStatus() && !shadow_auto && shadow_pump){
 
         if (shadow_auto) {
-            Serial.println("Cannot manually pump water while auto is set");
             logAssessment("manualWaterAssessment", "Cannot manually pump water while auto is set");
             return;
         }
