@@ -2,10 +2,9 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include "../../src/utilities.h"
+#include "StorageConstants.h"
 
 Preferences preferences;
-
-const char* firmwareVersion = "1.0.1"; 
 
 void storeWifiCredentials(String &storedSSID, String &storedPassword) {
     if(storedSSID.isEmpty() || storedPassword.isEmpty()){
@@ -13,23 +12,31 @@ void storeWifiCredentials(String &storedSSID, String &storedPassword) {
         return;
     }
 
-    preferences.begin("wifi", false);
-    preferences.putString("ssid", storedSSID);
-    preferences.putString("password", storedPassword);
+    preferences.begin(StorageSettings::WIFI_NAMESPACE, false);
+    preferences.putString(StorageSettings::SSID_KEY, storedSSID);
+    preferences.putString(StorageSettings::PASSWORD_KEY, storedPassword);
     preferences.end();
 }
 
 void loadWifiCredentials(String &loadedSSID, String &loadedPassword) {
-    preferences.begin("wifi", true);
+    preferences.begin(StorageSettings::WIFI_NAMESPACE, true);
     
-    if (!preferences.isKey("ssid") && !preferences.isKey("password")){
-        Serial.println("Error: SSID or Password keys do not exist in Preferences.");
-        preferences.end();
-        return;
+    bool ssidExists = preferences.isKey(StorageSettings::SSID_KEY);
+    bool passwordExists = preferences.isKey(StorageSettings::PASSWORD_KEY);
+
+    if (!ssidExists) {
+        Serial.println("Error: SSID key does not exist in Preferences.");
+    }
+    if (!passwordExists) {
+        Serial.println("Error: Password key does not exist in Preferences.");
     }
 
-    loadedSSID = preferences.getString("ssid");
-    loadedPassword = preferences.getString("password");
+    if (ssidExists && passwordExists) {
+        loadedSSID = preferences.getString(StorageSettings::SSID_KEY);
+        loadedPassword = preferences.getString(StorageSettings::PASSWORD_KEY);
+        Serial.println("Loaded WiFi SSID & Password.");
+    }
+    
     preferences.end();
 
     Serial.print("Loaded Wifi SSID & Password ");
@@ -38,7 +45,7 @@ void loadWifiCredentials(String &loadedSSID, String &loadedPassword) {
 void resetWifiPreferences() {
     Serial.println("Clearing stored preferences...");
     
-    preferences.begin("wifi", false);
+    preferences.begin(StorageSettings::WIFI_NAMESPACE, false);
     preferences.clear();
     preferences.end();
     
@@ -46,25 +53,25 @@ void resetWifiPreferences() {
 }
 
 void updateFirmwarePreferences(){
-    preferences.begin("system", false);
+    preferences.begin(StorageSettings::SYSTEM_NAMESPACE, false);
     preferences.clear();
-    preferences.putString("firmwareVersion", firmwareVersion);
+    preferences.putString(StorageSettings::FIRMWARE_VERSION_KEY, StorageSettings::FIRMWARE_VERSION);
     preferences.end();
 }
 
 void checkFirmware() {
-    preferences.begin("system", false);
+    preferences.begin(StorageSettings::SYSTEM_NAMESPACE, false);
     
-    if (!preferences.isKey("firmwareVersion")){
+    if (!preferences.isKey(StorageSettings::FIRMWARE_VERSION_KEY)){
         Serial.println("Firmware is not loaded currently");
         preferences.end();
         return;
     }
 
-    String storedVersion = preferences.getString("firmwareVersion", "");
+    String storedVersion = preferences.getString(StorageSettings::FIRMWARE_VERSION_KEY, "");
     preferences.end();
 
-    if (storedVersion == firmwareVersion){ 
+    if (storedVersion == StorageSettings::FIRMWARE_VERSION){ 
         Serial.println("Firmware version matches. No reset needed.");
         return;
     }

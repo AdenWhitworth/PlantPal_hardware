@@ -24,7 +24,6 @@ void setup() {
   vTaskDelay(pdMS_TO_TICKS(5000));
   connectToWiFi();
   attachStatusButtonInterrupt();
-  
 }
 
 void loop() {
