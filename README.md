@@ -11,6 +11,7 @@ Welcome to the **PlantPal Hardware**! This repository contains the ESP32 code, P
 - [Technologies Used](#technologies-used)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
+  - [Setting Up AWS IoT Core](#setting-up-aws-iot-core)
   - [Installation](#installation)
   - [Environment Variables](#environment-variables)
   - [Usage](#usage)
@@ -84,6 +85,29 @@ Before you begin, ensure you have the following:
 - [Arduino IDE](https://www.arduino.cc/en/software) installed.
 - PlatformIO (if preferred) set up in your IDE.
 - Necessary hardware components.
+- AWS IoT Core Account:
+  - Sign up for an AWS account if you don't have one.
+  - Create a new IoT Thing in the AWS IoT Core console.
+  - Attach a policy to allow publishing and subscribing to MQTT topics.
+  - Create a certificate for the Thing and download the keys.
+
+### Setting Up AWS IoT Core
+
+1. Create a New Thing:
+  - Go to the AWS IoT Core console.
+  - Click on “Manage” -> “Things” -> “Create a Thing”.
+  - Choose "Create a single thing" and provide a name for your Thing.
+2. Create a Policy:
+  - Go to "Secure" -> "Policies" -> "Create a policy".
+  - Set up a policy that allows actions like iot:Publish, iot:Subscribe, and iot:Connect on your MQTT topics.
+3. Attach the Policy to the Thing:
+  - After creating the Thing, navigate back to it and select "Security" -> "Certificates".
+  - Attach the certificate you created earlier and attach the policy.
+4. Add MQTT Topics:
+  - Ensure the following topics are set up for your application:
+    - your_aws_iot_log_topic for publishing sensor logs.
+    - $aws/things/{your_thing}/shadow/update for shadow updates.
+    - $aws/things/{your_thing}/shadow/get for retrieving shadow states.
 
 ### Installation
 
