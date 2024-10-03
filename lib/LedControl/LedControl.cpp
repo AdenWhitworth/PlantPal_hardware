@@ -11,34 +11,26 @@ int currentColor[3] = {0, 0, 0};
 TaskHandle_t ledTaskHandle;
 
 void initRgbLed(){
-  ledcAttachPin(RedLedPin, PWM1_Ch);
-  ledcSetup(PWM1_Ch, PWM1_Freq, PWM1_Res);
+  ledcAttachPin(RedLedPin, RED_CHANNEL);
+  ledcSetup(RED_CHANNEL, RgbLedSettings::PWM_FREQUENCY, RgbLedSettings::PWM_RESOLUTION);
   
-  ledcAttachPin(GreenLedPin, PWM2_Ch);
-  ledcSetup(PWM2_Ch, PWM2_Freq, PWM2_Res);
+  ledcAttachPin(GreenLedPin, GREEN_CHANNEL);
+  ledcSetup(GREEN_CHANNEL, RgbLedSettings::PWM_FREQUENCY, RgbLedSettings::PWM_RESOLUTION);
   
-  ledcAttachPin(BlueLedPin, PWM3_Ch);
-  ledcSetup(PWM3_Ch, PWM3_Freq, PWM3_Res);
+  ledcAttachPin(BlueLedPin, BLUE_CHANNEL);
+  ledcSetup(BLUE_CHANNEL, RgbLedSettings::PWM_FREQUENCY, RgbLedSettings::PWM_RESOLUTION);
   setColor(256, 256, 256);
 }
 
 void setColor(int redValue, int greenValue, int blueValue){
   
-  if (redValue != 256){
-    redValue = 255 - redValue;
-  }
-
-  if (greenValue != 256){
-    greenValue = 255 - greenValue;
-  }
-
-  if (blueValue != 256){
-    blueValue = 255 - blueValue;
-  }
+  redValue = (redValue != 256) ? 255 - redValue : 256;
+  greenValue = (greenValue != 256) ? 255 - greenValue : 256;
+  blueValue = (blueValue != 256) ? 255 - blueValue : 256;
   
-  ledcWrite(0,redValue); 
-  ledcWrite(1,greenValue);
-  ledcWrite(2,blueValue);
+  ledcWrite(RED_CHANNEL, redValue);
+  ledcWrite(GREEN_CHANNEL, greenValue);
+  ledcWrite(BLUE_CHANNEL, blueValue);
 }
 
 void fadeToColor(const int color[3]) {
