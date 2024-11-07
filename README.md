@@ -4,6 +4,8 @@
 
 Welcome to the **PlantPal Hardware**! This repository contains the ESP32 code, PCB schematic, and 3D models for the PlantPal device, designed to help plant enthusiasts monitor and manage their plants through a seamless and interactive experience.
 
+<img width="600" src="https://github.com/AdenWhitworth/PlantPal_Front-End/raw/master/src/Images/PlantPal%20Mockup.png" alt="PlantPal Device">
+
 ## Table of Contents
 - [Overview](#overview)
 - [PlantPal Live Demo](#plantpal-live-demo)
@@ -43,12 +45,15 @@ PlantPal devices will soon be available for sale on our website, which will prov
 
 ## Features
 
-- **Soil Moisture Sensing**: Monitor soil moisture levels to ensure optimal watering.
-- **Automated Watering**: Control a water pump to deliver the right amount of water based on soil moisture readings.
-- **Bluetooth Connectivity**: Manage the device's Wi-Fi through Bluetooth Low Energy (BLE) with our PlantPal application.
-- **User-Friendly Interface**: Manage the PlantPal device settings through a button on the device.
-- **MQTT Connectivity**: View your plants' information in real-time and interact with PlantPal from anywhere.
-- **LED Health Indications**: Onboard RGB LED color-coded to let users see what is physically happening at all times.
+- **Soil Moisture Sensing**: Continuously measures soil moisture levels to ensure optimal watering for healthy plant growth.
+- **Automated Watering**: Controls a water pump to deliver the appropriate amount of water based on soil moisture data.
+- **Bluetooth Connectivity**: Allows users to configure the device's Wi-Fi settings through Bluetooth Low Energy (BLE) using the PlantPal app.
+- **User-Friendly Controls**: Manage power, connectivity, and lighting settings directly from a button on the device.
+- **MQTT Integration**: Access real-time plant data and interact with PlantPal remotely from any location.
+- **LED Health Indications**: An onboard RGB LED displays color-coded signals to indicate the plant's watering status.
+- **LED Battery Indications**: A dedicated RGB LED provides color-coded indications for device power and charging states.
+
+<img width="400" src="https://github.com/AdenWhitworth/PlantPal_Front-End/raw/master/src/Images/PlantPal_Device.png" alt="PlantPal PCB">
 
 ## Technologies Used
 
@@ -73,6 +78,9 @@ The PlantPal hardware setup includes the following components:
 - **TIP Transistors**: Control the pump using a TIP120 transistor for power switching.
 - **Diodes**: Ensure electronic safety by regulating current direction.
 - **Capacitors**: Collect and store current for PCB reliability.
+- **LiPo Battery**: A rechargeable lithium polymer battery that powers the PlantPal device, enabling portable, long-term use.
+
+<img width="400" src="https://github.com/AdenWhitworth/PlantPal_Front-End/raw/master/src/Images/PlantPal_PCB.png" alt="PlantPal PCB">
 
 ## Getting Started
 
