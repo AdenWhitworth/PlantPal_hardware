@@ -28,7 +28,11 @@ PlantPal is a smart gardening solution designed to help plant enthusiasts monito
 
 ## PlantPal Live Demo
 
-The PlantPal application is live and can be accessed at [PlantPal Demo](https://www.plantpalhome.com/). Watch the video below showing the PlantPal hardware in action! The PlantPal hardware, accompanied by the live application, offers an intuitive experience for managing your plants remotely.
+The PlantPal application is live and can be accessed at [PlantPal Demo](https://www.plantpalhome.com/). This application integrates seamlessly with the PlantPal back-end, offering an intuitive experience for managing your plants remotely.
+
+<img width="600" src="https://github.com/AdenWhitworth/aden_whitworth_portfolio/raw/master/src/Images/plantpal_demo.png" alt="PlantPal Demo">
+
+<img width="600" src="https://github.com/AdenWhitworth/PlantPal_Front-End/raw/master/src/Images/PlantPal_live.jpg" alt="PlantPal Live device">
 
 ### Test User Credentials
 
